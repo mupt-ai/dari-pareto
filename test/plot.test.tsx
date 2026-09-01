@@ -36,7 +36,7 @@ describe("ParetoPlot", () => {
     expect(markup).toContain("Model Comparison");
     expect(markup).toContain('role="button"');
     expect(markup).toContain("Pareto-efficient");
-    expect(markup).toContain("DOMINATED");
+    expect(markup).toContain("Selected");
   });
 
   test("keeps keyboard focus active when pointer hover ends", () => {
@@ -62,7 +62,7 @@ describe("ParetoPlot", () => {
 
     expect(focusedId).toBe("small");
     expect(hoveredId).toBeNull();
-    expect(elementsWithRole(render(), "button")[0].props.r).toBe(8);
+    expect(elementsWithRole(render(), "button")[0].props.className).toContain("selected");
   });
 
   test("renders static SVG without interactive controls", () => {

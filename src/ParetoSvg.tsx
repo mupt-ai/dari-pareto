@@ -3,9 +3,9 @@ import type { CSSProperties, KeyboardEvent } from "react";
 import { paretoFrontier, validatePoints } from "./frontier.js";
 import type { AxisOptions, ParetoPlotProps, ParetoPoint } from "./types.js";
 
-const DEFAULT_WIDTH = 720;
-const DEFAULT_HEIGHT = 380;
-const MARGIN = { top: 48, right: 24, bottom: 66, left: 76 } as const;
+const DEFAULT_WIDTH = 620;
+const DEFAULT_HEIGHT = 290;
+const MARGIN = { top: 45, right: 36, bottom: 56, left: 54 } as const;
 
 const baseStyle = {
   display: "block",
@@ -14,7 +14,20 @@ const baseStyle = {
   background: "var(--pareto-background, #09100f)",
   color: "var(--pareto-foreground, #eef4ed)",
   fontFamily: "var(--pareto-font-family, 'JetBrains Mono', ui-monospace, monospace)",
+  overflow: "visible",
 } satisfies CSSProperties;
+
+const chartStyles = `
+  .pareto-point { cursor: pointer; outline: none; }
+  .pareto-point circle { stroke: var(--pareto-background, #09100f); stroke-width: 2; transition: .2s; }
+  .pareto-point-label { opacity: 0; pointer-events: none; transition: .2s; }
+  .pareto-point-label.visible { opacity: 1; }
+  .pareto-point:hover circle, .pareto-point:focus circle, .pareto-point.selected circle {
+    fill: var(--pareto-frontier, #8ee6bd); stroke: var(--pareto-frontier, #8ee6bd);
+    filter: drop-shadow(0 0 5px rgba(142, 230, 189, .7));
+  }
+  .pareto-point:hover .pareto-point-label, .pareto-point:focus .pareto-point-label, .pareto-point.selected .pareto-point-label { opacity: 1; }
+`;
 
 function defaultFormat(value: number): string {
   return new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(value);
@@ -135,7 +148,7 @@ export function ParetoSvg({
     if (!interactive) return;
     onSelect?.(point);
   };
-  const handleKeyDown = (event: KeyboardEvent<SVGCircleElement>, point: ParetoPoint) => {
+  const handleKeyDown = (event: KeyboardEvent<SVGGElement>, point: ParetoPoint) => {
     if (event.key !== "Enter" && event.key !== " ") return;
     event.preventDefault();
     activate(point);
@@ -152,6 +165,7 @@ export function ParetoSvg({
       width={width}
       xmlns="http://www.w3.org/2000/svg"
     >
+      <style>{chartStyles}</style>
       <title>{title}</title>
       <desc>{fullDescription}</desc>
 
@@ -167,20 +181,20 @@ export function ParetoSvg({
       </text>
 
       {showLegend ? (
-        <g aria-hidden="true" fontSize="10" transform={`translate(${width - MARGIN.right - 176} 20)`}>
-          <circle cx="0" cy="0" fill="var(--pareto-frontier, #8ee6bd)" r="4" />
+        <g aria-hidden="true" fontSize="9" transform={`translate(${width - MARGIN.right - 150} 20)`}>
+          <circle cx="0" cy="0" fill="var(--pareto-background, #09100f)" r="3" stroke="var(--pareto-frontier, #8ee6bd)" />
           <text fill="var(--pareto-muted, #91a39b)" x="9" y="3">
-            EFFICIENT
+            Selected
           </text>
-          <circle cx="90" cy="0" fill="var(--pareto-point, #60736b)" r="4" />
-          <text fill="var(--pareto-muted, #91a39b)" x="99" y="3">
-            DOMINATED
+          <circle cx="75" cy="0" fill="var(--pareto-frontier, #8ee6bd)" r="3" />
+          <text fill="var(--pareto-muted, #91a39b)" x="84" y="3">
+            Pareto-efficient
           </text>
         </g>
       ) : null}
 
       <g aria-hidden="true">
-        {yTicks.map((tick) => {
+        {yTicks.filter((tick) => tick !== 0).map((tick) => {
           const y = scaleY(tick);
           return (
             <g key={`y-${tick}`}>
@@ -208,25 +222,16 @@ export function ParetoSvg({
         {xTicks.map((tick) => {
           const x = scaleX(tick);
           return (
-            <g key={`x-${tick}`}>
-              <line
-                stroke="var(--pareto-grid, #263631)"
-                strokeWidth="1"
-                x1={x}
-                x2={x}
-                y1={MARGIN.top}
-                y2={height - MARGIN.bottom}
-              />
-              <text
-                fill="var(--pareto-muted, #91a39b)"
-                fontSize="10"
-                textAnchor="middle"
-                x={x}
-                y={height - MARGIN.bottom + 20}
-              >
-                {formatX(tick)}
-              </text>
-            </g>
+            <text
+              key={`x-${tick}`}
+              fill="var(--pareto-muted, #91a39b)"
+              fontSize="9"
+              textAnchor="middle"
+              x={x}
+              y={height - MARGIN.bottom + 20}
+            >
+              {formatX(tick)}
+            </text>
           );
         })}
       </g>
@@ -237,8 +242,9 @@ export function ParetoSvg({
           fill="none"
           points={frontier.map((point) => `${scaleX(point.x)},${scaleY(point.y)}`).join(" ")}
           stroke="var(--pareto-frontier, #8ee6bd)"
-          strokeDasharray="5 5"
-          strokeWidth="2"
+          opacity="0.7"
+          strokeDasharray="4 5"
+          strokeWidth="1.5"
           vectorEffect="non-scaling-stroke"
         />
       ) : null}
@@ -247,53 +253,57 @@ export function ParetoSvg({
         {points.map((point) => {
           const efficient = frontierIds.has(point.id);
           const selected = point.id === selectedId || point.id === activeId;
-          const showLabel =
-            showPointLabels === "all" ||
-            (showPointLabels === "frontier" && efficient) ||
-            selected ||
-            (interactive && point.id === activeId);
           return (
-            <g key={point.id}>
+            <g
+              aria-label={interactive ? pointDescription(point, xAxis, yAxis, efficient) : undefined}
+              className={`pareto-point${selected ? " selected" : ""}${efficient ? " efficient" : ""}`}
+              key={point.id}
+              onBlur={interactive ? () => onFocusedIdChange?.(null) : undefined}
+              onClick={interactive ? () => activate(point) : undefined}
+              onFocus={interactive ? () => onFocusedIdChange?.(point.id) : undefined}
+              onKeyDown={interactive ? (event) => handleKeyDown(event, point) : undefined}
+              onMouseEnter={interactive ? () => onHoveredIdChange?.(point.id) : undefined}
+              onMouseLeave={interactive ? () => onHoveredIdChange?.(null) : undefined}
+              role={interactive ? "button" : undefined}
+              tabIndex={interactive ? 0 : undefined}
+            >
               <circle
-                aria-label={interactive ? pointDescription(point, xAxis, yAxis, efficient) : undefined}
                 cx={scaleX(point.x)}
                 cy={scaleY(point.y)}
-                fill={
-                  efficient
-                    ? "var(--pareto-frontier, #8ee6bd)"
-                    : "var(--pareto-point, #60736b)"
-                }
-                onBlur={interactive ? () => onFocusedIdChange?.(null) : undefined}
-                onClick={interactive ? () => activate(point) : undefined}
-                onFocus={interactive ? () => onFocusedIdChange?.(point.id) : undefined}
-                onKeyDown={interactive ? (event) => handleKeyDown(event, point) : undefined}
-                onMouseEnter={interactive ? () => onHoveredIdChange?.(point.id) : undefined}
-                onMouseLeave={interactive ? () => onHoveredIdChange?.(null) : undefined}
-                r={selected ? 8 : efficient ? 6 : 5}
-                role={interactive ? "button" : undefined}
-                stroke={selected ? "var(--pareto-foreground, #eef4ed)" : "none"}
-                strokeWidth={selected ? 2 : 0}
-                style={interactive ? { cursor: "pointer", outline: "none" } : undefined}
-                tabIndex={interactive ? 0 : undefined}
+                fill={efficient ? "var(--pareto-frontier, #8ee6bd)" : "var(--pareto-point, #60736b)"}
+                r={selected ? 8 : 5}
               >
                 {!interactive ? <title>{pointDescription(point, xAxis, yAxis, efficient)}</title> : null}
               </circle>
-              {showLabel ? (
-                <text
-                  aria-hidden="true"
-                  fill="var(--pareto-foreground, #eef4ed)"
-                  fontSize="10"
-                  paintOrder="stroke"
-                  stroke="var(--pareto-background, #09100f)"
-                  strokeWidth="4"
-                  textAnchor="middle"
-                  x={scaleX(point.x)}
-                  y={scaleY(point.y) - (selected ? 13 : 11)}
-                >
-                  {point.label}
-                </text>
-              ) : null}
             </g>
+          );
+        })}
+      </g>
+
+      <g aria-hidden="true">
+        {points.map((point) => {
+          const efficient = frontierIds.has(point.id);
+          const selected = point.id === selectedId || point.id === activeId;
+          const showLabel =
+            showPointLabels === "all" ||
+            (showPointLabels === "frontier" && efficient) ||
+            selected;
+          if (!showLabel && !(interactive && point.id === activeId)) return null;
+          return (
+            <text
+              className={`pareto-point-label${showLabel ? " visible" : ""}`}
+              fill="var(--pareto-foreground, #eef4ed)"
+              fontSize="8"
+              key={point.id}
+              paintOrder="stroke"
+              stroke="var(--pareto-background, #09100f)"
+              strokeWidth="4"
+              textAnchor="middle"
+              x={scaleX(point.x)}
+              y={scaleY(point.y) - (selected ? 13 : 11)}
+            >
+              {point.label}
+            </text>
           );
         })}
       </g>
@@ -314,11 +324,11 @@ export function ParetoSvg({
         fill="var(--pareto-muted, #91a39b)"
         fontSize="11"
         letterSpacing="0.04em"
-        textAnchor="middle"
-        x={MARGIN.left + plotWidth / 2}
-        y={height - 12}
+        textAnchor="end"
+        x={width - 4}
+        y={height - 8}
       >
-        {xAxis.label.toUpperCase()}
+        {xAxis.label.toUpperCase()} →
       </text>
       <text
         fill="var(--pareto-muted, #91a39b)"
