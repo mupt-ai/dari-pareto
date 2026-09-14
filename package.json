@@ -1,6 +1,6 @@
 {
   "name": "@mupt-ai/dari-pareto",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Static and interactive Pareto frontier plots for evaluation results.",
   "license": "Apache-2.0",
   "repository": {
