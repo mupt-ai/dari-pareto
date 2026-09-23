@@ -89,3 +89,49 @@ describe("ParetoPlot", () => {
     ).toThrow("increasing values");
   });
 });
+
+describe("ParetoPlot theming", () => {
+  test("colors points: efficient ones filled, dominated ones ringed", () => {
+    const markup = renderParetoPlot({
+      ...props,
+      points: props.points.map((point) => ({ ...point, color: "#123456" })),
+    });
+
+    expect(markup).toContain("--pareto-point-color:#123456");
+    expect(markup).toContain('fill="#123456"');
+    expect(markup).toContain('fill="var(--pareto-background, #09100f)"');
+  });
+
+  test("can hide the title and scale text", () => {
+    const markup = renderParetoPlot({ ...props, showTitle: false, showLegend: false, textScale: 2 });
+
+    expect(markup).not.toContain('font-weight="700"');
+    expect(markup).toContain('font-size="22"');
+  });
+
+  test("shows a card with the hovered point's values", () => {
+    const markup = renderToStaticMarkup(
+      ParetoSvg({
+        ...props,
+        hoveredId: "large",
+        xAxis: { ...props.xAxis, format: (value) => `$${value.toFixed(2)}` },
+      }),
+    );
+
+    expect(markup).toContain("pareto-tooltip");
+    expect(markup).toContain("$0.03");
+    expect(renderToStaticMarkup(ParetoSvg({ ...props, hoveredId: "large", showTooltip: false }))).not.toContain(
+      "pareto-tooltip",
+    );
+  });
+
+  test("starts an all-positive axis that includes zero at zero", () => {
+    const markup = renderParetoPlot({
+      ...props,
+      xAxis: { ...props.xAxis, includeZero: true, nice: true, ticks: 4, format: (value) => `x${value}` },
+    });
+
+    expect(markup).toContain(">x0<");
+    expect(markup).not.toContain(">x-");
+  });
+});

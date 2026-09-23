@@ -8,6 +8,8 @@ export type ParetoPoint = {
   x: number;
   y: number;
   description?: string;
+  /** Any CSS color. Colors the point; Pareto-efficient points are filled, dominated ones ringed. */
+  color?: string;
 };
 
 export type AxisOptions = {
@@ -17,6 +19,8 @@ export type AxisOptions = {
   includeZero?: boolean;
   format?: (value: number) => string;
   ticks?: number;
+  /** Rounds the automatic domain out to, and places ticks on, round values. */
+  nice?: boolean;
 };
 
 export type ParetoPlotMode = "static" | "interactive";
@@ -34,6 +38,12 @@ export type ParetoPlotProps = {
   onSelect?: (point: ParetoPoint) => void;
   showLegend?: boolean;
   showPointLabels?: "none" | "frontier" | "all";
+  /** Shows the title above the plot. Defaults to true. */
+  showTitle?: boolean;
+  /** Shows a card with the point's values on hover or focus. Defaults to true. */
+  showTooltip?: boolean;
+  /** Multiplies every text size, for plots drawn larger or smaller than their logical size. */
+  textScale?: number;
   className?: string;
   style?: CSSProperties;
 };

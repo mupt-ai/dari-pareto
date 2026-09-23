@@ -108,7 +108,18 @@ coordinates throw an error; empty and single-point inputs are valid.
 
 Axis `domain` sets an explicit `[minimum, maximum]` range. Without it, the plot
 uses the supplied points and adds padding. Set `includeZero: true` to include
-zero in an inferred domain.
+zero in an inferred domain; all-positive data then starts exactly at zero. Set
+`nice: true` to round an inferred domain out to round values and place the
+ticks on round steps (1, 2, 2.5 or 5 times a power of ten), with `ticks` as the
+approximate count.
+
+Labels shown by `showPointLabels` are placed above, beside or below their point
+so they cover no marker and no other label; one with no room is left out and
+still appears on hover. In interactive mode, hovering or focusing a point shows
+a card with its label, both axis values and its `description`. Set
+`showTooltip: false` to show only the label. `showTitle: false` hides the title,
+and with `showLegend: false` the plot drops the space reserved above it.
+`textScale` multiplies every text size.
 
 ## Styling
 
@@ -122,8 +133,17 @@ Override CSS variables on the plot or a parent element:
   --pareto-grid: #263631;
   --pareto-frontier: #8ee6bd;
   --pareto-point: #60736b;
+  /* Optional; each falls back as noted. */
+  --pareto-frontier-line: #8ee6bd; /* --pareto-frontier */
+  --pareto-glow: rgba(142, 230, 189, 0.7); /* the hovered point's color */
+  --pareto-tooltip-background: #09100f; /* --pareto-background */
 }
 ```
+
+To color points individually, for example by provider, give each point a
+`color` (any CSS color). Pareto-efficient points are filled with it and
+dominated points are drawn as a ring in it; the frontier line keeps
+`--pareto-frontier-line`.
 
 ## Development
 
