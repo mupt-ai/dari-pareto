@@ -2,7 +2,7 @@ import type { CSSProperties, KeyboardEvent } from "react";
 
 import { axisScale } from "./axis.js";
 import { paretoFrontier, validatePoints } from "./frontier.js";
-import { placeLabels } from "./labels.js";
+import { CHARACTER_WIDTH, placeLabels } from "./labels.js";
 import { Tooltip } from "./Tooltip.js";
 import type { AxisOptions, ParetoPlotProps, ParetoPoint } from "./types.js";
 
@@ -11,6 +11,10 @@ const DEFAULT_HEIGHT = 290;
 const MARGIN = { top: 45, right: 36, bottom: 56, left: 54 } as const;
 /** The top margin when neither the title nor the legend is drawn. */
 const BARE_TOP = 16;
+/** Where the rotated y-axis title sits: its baseline's x, unless the margin is fitted. */
+const Y_TITLE_X = 16;
+/** Space kept between the y-axis title, the tick labels and the plot in a fitted margin. */
+const Y_AXIS_GAP = 10;
 /**
  * A colored dominated point is a ring. Its colored stroke reaches past its radius while a
  * filled point's background halo covers part of its own, so the ring is drawn smaller to keep
@@ -95,7 +99,7 @@ export function ParetoSvg({
   labelPlacement = "above",
   showTitle = true,
   showTooltip = false,
-  textScale = 1,
+  textScale,
   className,
   style,
   focusedId = null,
@@ -108,10 +112,10 @@ export function ParetoSvg({
   if (!Number.isFinite(width) || !Number.isFinite(height) || width < 320 || height < 240) {
     throw new Error("Pareto plot width and height must be finite and at least 320 × 240.");
   }
-  if (!Number.isFinite(textScale) || textScale <= 0) {
+  if (textScale !== undefined && (!Number.isFinite(textScale) || textScale <= 0)) {
     throw new Error("Pareto plot text scale must be a positive number.");
   }
-  const size = (base: number) => base * textScale;
+  const size = (base: number) => base * (textScale ?? 1);
 
   const frontier = paretoFrontier(points, {
     xObjective: xAxis.objective,
@@ -126,15 +130,27 @@ export function ParetoSvg({
     points.map((point) => point.y),
     yAxis,
   );
-  const top = showTitle || showLegend ? MARGIN.top : BARE_TOP;
-  const plotWidth = Math.max(1, width - MARGIN.left - MARGIN.right);
-  const plotHeight = Math.max(1, height - top - MARGIN.bottom);
-  const scaleX = (value: number) =>
-    MARGIN.left + ((value - xDomain[0]) / (xDomain[1] - xDomain[0])) * plotWidth;
-  const scaleY = (value: number) =>
-    top + plotHeight - ((value - yDomain[0]) / (yDomain[1] - yDomain[0])) * plotHeight;
   const formatX = xAxis.format ?? defaultFormat;
   const formatY = yAxis.format ?? defaultFormat;
+  const shownYTicks = yTicks.filter((tick) => tick !== 0);
+  // Scaled text gets a left margin fitted to it: the y-axis title, a gap, the widest tick
+  // label, a gap, then the plot. Unscaled plots keep the fixed layout.
+  let left: number = MARGIN.left;
+  let yTitleX = Y_TITLE_X;
+  if (textScale !== undefined) {
+    const titleSize = size(11);
+    const widestTick = Math.max(0, ...shownYTicks.map((tick) => formatY(tick).length)) * size(10) * CHARACTER_WIDTH;
+    // Capitals rise about 0.8 em from the rotated baseline, toward the left edge.
+    yTitleX = 4 + titleSize * 0.8;
+    left = Math.max(MARGIN.left, Math.ceil(yTitleX + titleSize * 0.2 + Y_AXIS_GAP + widestTick + Y_AXIS_GAP));
+  }
+  const top = showTitle || showLegend ? MARGIN.top : BARE_TOP;
+  const plotWidth = Math.max(1, width - left - MARGIN.right);
+  const plotHeight = Math.max(1, height - top - MARGIN.bottom);
+  const scaleX = (value: number) =>
+    left + ((value - xDomain[0]) / (xDomain[1] - xDomain[0])) * plotWidth;
+  const scaleY = (value: number) =>
+    top + plotHeight - ((value - yDomain[0]) / (yDomain[1] - yDomain[0])) * plotHeight;
   const interactive = mode === "interactive";
   const colored = points.some((point) => point.color);
   const fullDescription =
@@ -166,7 +182,7 @@ export function ParetoSvg({
             {
               markers: points.map((point) => ({ x: scaleX(point.x), y: scaleY(point.y), radius: 5 })),
               lines: [frontier.map((point) => ({ x: scaleX(point.x), y: scaleY(point.y) }))],
-              bounds: { x: MARGIN.left, y: top, width: plotWidth, height: plotHeight },
+              bounds: { x: left, y: top, width: plotWidth, height: plotHeight },
               fontSize: labelSize,
             },
           ).map((label) => [label.id, label]),
@@ -196,7 +212,7 @@ export function ParetoSvg({
           fontSize={size(14)}
           fontWeight="700"
           letterSpacing="0.04em"
-          x={MARGIN.left}
+          x={left}
           y="24"
         >
           {title}
@@ -230,14 +246,14 @@ export function ParetoSvg({
       ) : null}
 
       <g aria-hidden="true">
-        {yTicks.filter((tick) => tick !== 0).map((tick) => {
+        {shownYTicks.map((tick) => {
           const y = scaleY(tick);
           return (
             <g key={`y-${tick}`}>
               <line
                 stroke="var(--pareto-grid, #263631)"
                 strokeWidth="1"
-                x1={MARGIN.left}
+                x1={left}
                 x2={width - MARGIN.right}
                 y1={y}
                 y2={y}
@@ -247,7 +263,7 @@ export function ParetoSvg({
                 fill="var(--pareto-muted, #91a39b)"
                 fontSize={size(10)}
                 textAnchor="end"
-                x={MARGIN.left - 10}
+                x={left - Y_AXIS_GAP}
                 y={y}
               >
                 {formatY(tick)}
@@ -366,7 +382,7 @@ export function ParetoSvg({
           fill="var(--pareto-muted, #91a39b)"
           fontSize={size(12)}
           textAnchor="middle"
-          x={MARGIN.left + plotWidth / 2}
+          x={left + plotWidth / 2}
           y={top + plotHeight / 2}
         >
           NO DATA
@@ -388,8 +404,8 @@ export function ParetoSvg({
         fontSize={size(11)}
         letterSpacing="0.04em"
         textAnchor="middle"
-        transform={`rotate(-90 16 ${top + plotHeight / 2})`}
-        x="16"
+        transform={`rotate(-90 ${yTitleX} ${top + plotHeight / 2})`}
+        x={yTitleX}
         y={top + plotHeight / 2}
       >
         {yAxis.label.toUpperCase()}

@@ -59,7 +59,11 @@ export type ParetoPlotProps = {
    * values and its description, in place of its label. Defaults to false.
    */
   showTooltip?: boolean;
-  /** Multiplies every text size, for plots drawn larger or smaller than their logical size. Defaults to 1. */
+  /**
+   * Multiplies every text size, for plots drawn larger or smaller than their logical size.
+   * Setting it also fits the left margin to the y-axis tick labels, keeping a gap between
+   * them and the y-axis title. Unset, text is at 1× in the fixed layout.
+   */
   textScale?: number;
   className?: string;
   style?: CSSProperties;

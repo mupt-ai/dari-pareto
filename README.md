@@ -130,7 +130,8 @@ as before.
   and dims the other labels. Interactive mode only.
 - **Title and text size.** `showTitle: false` hides the title; with
   `showLegend: false` as well, the plot drops the space kept above it for them.
-  `textScale` multiplies every text size.
+  `textScale` multiplies every text size and fits the left margin to the y-axis
+  tick labels, so larger text or wider labels keep a gap from the y-axis title.
 
 ## Styling
 

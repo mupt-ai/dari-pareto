@@ -154,4 +154,21 @@ describe("ParetoPlot options", () => {
     expect(markup).toContain('font-size="22"');
     expect(() => renderParetoPlot({ ...props, textScale: 0 })).toThrow("text scale");
   });
+
+  test("with scaled text, fits the left margin so the y-axis title clears the tick labels", () => {
+    const wide = { ...props.yAxis, format: (value: number) => `${value} widgets` };
+    const titleX = (markup: string) => Number(markup.match(/rotate\(-90 ([\d.]+) /)?.[1]);
+    const plotLeft = (markup: string) => Number(markup.match(/<line [^>]*x1="([\d.]+)"/)?.[1]);
+
+    // Unscaled plots keep the fixed layout, however wide their labels.
+    const fixed = renderParetoPlot({ ...props, yAxis: wide });
+    expect(titleX(fixed)).toBe(16);
+    expect(plotLeft(fixed)).toBe(54);
+
+    const fitted = renderParetoPlot({ ...props, yAxis: wide, textScale: 1.25 });
+    const labelWidth = "100 widgets".length * 10 * 1.25 * 0.62;
+    const labelsStart = plotLeft(fitted) - 10 - labelWidth;
+    // The title's glyphs end about 0.2 em right of its rotated baseline.
+    expect(labelsStart - (titleX(fitted) + 11 * 1.25 * 0.2)).toBeGreaterThanOrEqual(10);
+  });
 });
