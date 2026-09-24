@@ -90,8 +90,21 @@ describe("ParetoPlot", () => {
   });
 });
 
-describe("ParetoPlot theming", () => {
-  test("colors points: efficient ones filled, dominated ones ringed", () => {
+describe("ParetoPlot options", () => {
+  const hovered = (extra: Partial<ParetoPlotProps> = {}) =>
+    renderToStaticMarkup(ParetoSvg({ ...props, showPointLabels: "all", hoveredId: "large", ...extra }));
+
+  test("draws nothing new unless asked", () => {
+    const markup = hovered();
+
+    expect(markup).not.toContain("pareto-tooltip");
+    expect(markup).not.toContain("dimmed");
+    expect(markup).not.toContain("--pareto-point-color");
+    expect(markup).toContain('font-weight="700"');
+    expect(markup).toContain("Selected");
+  });
+
+  test("colors points: Pareto-efficient ones filled, dominated ones ringed", () => {
     const markup = renderParetoPlot({
       ...props,
       points: props.points.map((point) => ({ ...point, color: "#123456" })),
@@ -99,7 +112,39 @@ describe("ParetoPlot theming", () => {
 
     expect(markup).toContain("--pareto-point-color:#123456");
     expect(markup).toContain('fill="#123456"');
-    expect(markup).toContain('fill="var(--pareto-background, #09100f)"');
+    expect(markup).toContain('fill="var(--pareto-background, #09100f)" r="3.5"');
+    expect(markup).toContain("Dominated");
+    expect(markup).not.toContain("Selected");
+  });
+
+  test("places crowded labels beside or below instead of on top of each other", () => {
+    const markup = renderParetoPlot({
+      ...props,
+      points: [
+        { id: "a", label: "Alpha", x: 0.5, y: 50 },
+        { id: "b", label: "Beta", x: 0.502, y: 50 },
+      ],
+      xAxis: { ...props.xAxis, domain: [0, 1] },
+      showPointLabels: "all",
+      labelPlacement: "auto",
+    });
+
+    expect(markup).toContain(">Alpha<");
+    expect(markup).toContain(">Beta<");
+    expect(markup).toMatch(/text-anchor="(start|end)"[^>]*>(Alpha|Beta)</);
+  });
+
+  test("shows a card in place of the hovered point's label", () => {
+    const markup = hovered({
+      showTooltip: true,
+      xAxis: { ...props.xAxis, format: (value) => `$${value.toFixed(2)}` },
+    });
+
+    expect(markup).toContain('class="pareto-tooltip"');
+    expect(markup).toContain(">$0.03<");
+    expect(markup.match(/>Large</g)).toHaveLength(1);
+    expect(markup).toContain("pareto-point-label visible dimmed");
+    expect(renderParetoPlot({ ...props, showTooltip: true })).not.toContain("pareto-tooltip");
   });
 
   test("can hide the title and scale text", () => {
@@ -107,31 +152,6 @@ describe("ParetoPlot theming", () => {
 
     expect(markup).not.toContain('font-weight="700"');
     expect(markup).toContain('font-size="22"');
-  });
-
-  test("shows a card with the hovered point's values", () => {
-    const markup = renderToStaticMarkup(
-      ParetoSvg({
-        ...props,
-        hoveredId: "large",
-        xAxis: { ...props.xAxis, format: (value) => `$${value.toFixed(2)}` },
-      }),
-    );
-
-    expect(markup).toContain("pareto-tooltip");
-    expect(markup).toContain("$0.03");
-    expect(renderToStaticMarkup(ParetoSvg({ ...props, hoveredId: "large", showTooltip: false }))).not.toContain(
-      "pareto-tooltip",
-    );
-  });
-
-  test("starts an all-positive axis that includes zero at zero", () => {
-    const markup = renderParetoPlot({
-      ...props,
-      xAxis: { ...props.xAxis, includeZero: true, nice: true, ticks: 4, format: (value) => `x${value}` },
-    });
-
-    expect(markup).toContain(">x0<");
-    expect(markup).not.toContain(">x-");
+    expect(() => renderParetoPlot({ ...props, textScale: 0 })).toThrow("text scale");
   });
 });

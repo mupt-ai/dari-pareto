@@ -8,7 +8,10 @@ export type ParetoPoint = {
   x: number;
   y: number;
   description?: string;
-  /** Any CSS color. Colors the point; Pareto-efficient points are filled, dominated ones ringed. */
+  /**
+   * Any CSS color. Draws this point in its own color instead of the theme's: filled when
+   * Pareto-efficient, a ring when dominated.
+   */
   color?: string;
 };
 
@@ -19,7 +22,12 @@ export type AxisOptions = {
   includeZero?: boolean;
   format?: (value: number) => string;
   ticks?: number;
-  /** Rounds the automatic domain out to, and places ticks on, round values. */
+  /**
+   * Places ticks on round steps (1, 2, 2.5 or 5 times a power of ten), `ticks` being the
+   * approximate count, and rounds an inferred domain out to whole steps. An inferred domain
+   * that includes zero then starts, or ends, exactly at zero. Defaults to false: ticks split
+   * the domain evenly.
+   */
   nice?: boolean;
 };
 
@@ -38,11 +46,20 @@ export type ParetoPlotProps = {
   onSelect?: (point: ParetoPoint) => void;
   showLegend?: boolean;
   showPointLabels?: "none" | "frontier" | "all";
-  /** Shows the title above the plot. Defaults to true. */
+  /**
+   * Where resting point labels go. "above" (the default) centers each above its point.
+   * "auto" tries above, right, left, then below, taking the first spot that covers no point
+   * and no other label; a label with no room is left out and still appears on hover.
+   */
+  labelPlacement?: "above" | "auto";
+  /** Draws the title above the plot. Defaults to true. */
   showTitle?: boolean;
-  /** Shows a card with the point's values on hover or focus. Defaults to true. */
+  /**
+   * In interactive mode, shows a card with the hovered or focused point's label, both axis
+   * values and its description, in place of its label. Defaults to false.
+   */
   showTooltip?: boolean;
-  /** Multiplies every text size, for plots drawn larger or smaller than their logical size. */
+  /** Multiplies every text size, for plots drawn larger or smaller than their logical size. Defaults to 1. */
   textScale?: number;
   className?: string;
   style?: CSSProperties;
