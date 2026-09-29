@@ -137,6 +137,12 @@ as before.
   colored like the group's first point. Hovering or focusing a chip fades every
   point and label outside its group; a click or tap holds the highlight until
   the chip is pressed again. Static plots show the chips as a key.
+- **Palette.** `palette: ["#hex", …]` colors points that have no `color` of their
+  own: each group (or each point, without groups) takes the next color in order
+  of first appearance, starting over when there are more groups than colors.
+  Groups past the palette's length share colors and rely on their names, so keep
+  it at least as long as the groups you expect. `pointColors(points, palette)`
+  returns the same assignment, to color the rest of a page to match.
 - **Settings.** `showSettings: true` adds a quiet button in the top right corner
   of an interactive plot. It opens a small panel where the viewer sets the text
   size from 50 to 200 percent: typed (kept in range, to a whole percent, applied

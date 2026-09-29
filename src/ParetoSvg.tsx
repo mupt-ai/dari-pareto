@@ -1,6 +1,7 @@
 import type { CSSProperties, KeyboardEvent, MouseEvent as ReactMouseEvent } from "react";
 
 import { axisScale } from "./axis.js";
+import { pointColors } from "./colors.js";
 import { paretoFrontier, validatePoints } from "./frontier.js";
 import { GroupLegend, groupsOf, layoutGroups } from "./Groups.js";
 import { CHARACTER_WIDTH, placeLabels } from "./labels.js";
@@ -143,6 +144,7 @@ export function ParetoSvg({
   showTooltip = false,
   textScale,
   hoverRadius,
+  palette,
   showGroups = false,
   showSettings = false,
   className,
@@ -212,7 +214,8 @@ export function ParetoSvg({
   }
   const plotWidth = Math.max(1, width - left - MARGIN.right);
   // Group chips sit in rows above the plot, below the title and legend when those are shown.
-  const groups = showGroups ? groupsOf(points) : [];
+  const colorOf = pointColors(points, palette);
+  const groups = showGroups ? groupsOf(points, colorOf) : [];
   const chipsTop = showTitle || showLegend ? 34 : 6;
   const legend = layoutGroups(groups, { left, top: chipsTop, maxWidth: plotWidth, fontSize: size(9) });
   const baseTop = showTitle || showLegend ? MARGIN.top : BARE_TOP;
@@ -220,7 +223,7 @@ export function ParetoSvg({
   const plotHeight = Math.max(1, height - top - bottom);
   const scaleX = (value: number) => left + xAt(value) * plotWidth;
   const scaleY = (value: number) => top + plotHeight - yAt(value) * plotHeight;
-  const colored = points.some((point) => point.color);
+  const colored = points.some((point) => colorOf.get(point.id));
   const highlighted = groups.length > 0 ? (hoveredGroup ?? pinnedGroup) : null;
   const faded = (point: ParetoPoint) => highlighted !== null && point.group !== highlighted;
   const fullDescription =
@@ -448,11 +451,12 @@ export function ParetoSvg({
           const efficient = frontierIds.has(point.id);
           const selected = point.id === selectedId || point.id === activeId;
           const themeFill = efficient ? "var(--pareto-frontier, #8ee6bd)" : "var(--pareto-point, #60736b)";
-          const ownFill = efficient ? point.color : "var(--pareto-background, #09100f)";
+          const color = colorOf.get(point.id);
+          const ownFill = efficient ? color : "var(--pareto-background, #09100f)";
           return (
             <g
               aria-label={interactive ? pointDescription(point, xAxis, yAxis, efficient) : undefined}
-              className={`pareto-point${selected ? " selected" : ""}${efficient ? " efficient" : ""}${point.color ? " colored" : ""}${faded(point) ? " faded" : ""}`}
+              className={`pareto-point${selected ? " selected" : ""}${efficient ? " efficient" : ""}${color ? " colored" : ""}${faded(point) ? " faded" : ""}`}
               key={point.id}
               onBlur={interactive ? () => onFocusedIdChange?.(null) : undefined}
               onClick={interactive && !nearHover ? () => activate(point) : undefined}
@@ -461,14 +465,14 @@ export function ParetoSvg({
               onMouseEnter={interactive && !nearHover ? () => onHoveredIdChange?.(point.id) : undefined}
               onMouseLeave={interactive && !nearHover ? () => onHoveredIdChange?.(null) : undefined}
               role={interactive ? "button" : undefined}
-              style={point.color ? ({ "--pareto-point-color": point.color } as CSSProperties) : undefined}
+              style={color ? ({ "--pareto-point-color": color } as CSSProperties) : undefined}
               tabIndex={interactive ? 0 : undefined}
             >
               <circle
                 cx={scaleX(point.x)}
                 cy={scaleY(point.y)}
-                fill={point.color ? ownFill : themeFill}
-                r={selected ? 8 : point.color && !efficient ? RING_RADIUS : 5}
+                fill={color ? ownFill : themeFill}
+                r={selected ? 8 : color && !efficient ? RING_RADIUS : 5}
               >
                 {!interactive ? <title>{pointDescription(point, xAxis, yAxis, efficient)}</title> : null}
               </circle>

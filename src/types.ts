@@ -80,6 +80,14 @@ export type ParetoPlotProps = {
    */
   hoverRadius?: number;
   /**
+   * Colors for points without their own `color`: each group (or each point, when points have
+   * no group) takes the next one in order of first appearance, starting over when there are
+   * more groups than colors, so groups past the palette's length share colors and rely on
+   * their names. `pointColors` gives the same assignment, for coloring the rest of a page to
+   * match.
+   */
+  palette?: readonly string[];
+  /**
    * Draws a row of chips above the plot, one per point `group`. Hovering or focusing a chip
    * fades every point outside its group; a click or tap holds that until the chip is pressed
    * again. Static plots show the chips as a key. Defaults to false.

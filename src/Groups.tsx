@@ -8,11 +8,14 @@ export type Group = { name: string; color: string };
 type Chip = Group & { x: number; y: number; width: number };
 
 /** The points' groups in order of first appearance, each in its first point's color. */
-export function groupsOf(points: readonly ParetoPoint[]): Group[] {
+export function groupsOf(
+  points: readonly ParetoPoint[],
+  colorOf: ReadonlyMap<string, string | undefined> = new Map(),
+): Group[] {
   const groups = new Map<string, string>();
   for (const point of points) {
     if (point.group && !groups.has(point.group)) {
-      groups.set(point.group, point.color ?? "var(--pareto-frontier, #8ee6bd)");
+      groups.set(point.group, colorOf.get(point.id) ?? point.color ?? "var(--pareto-frontier, #8ee6bd)");
     }
   }
   return [...groups].map(([name, color]) => ({ name, color }));
