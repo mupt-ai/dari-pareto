@@ -31,6 +31,17 @@ export function parseTextSize(typed: string, current: number): number {
   return Number.isFinite(value) ? clampTextSize(value) : current;
 }
 
+/**
+ * What a smaller (`-1`) or larger (`1`) button gives from what the field holds, typed or not
+ * yet applied, or `size` when nothing in it parses: the next multiple of the step, or undefined
+ * at the end of the range.
+ */
+export function stepFrom(typed: string, size: number, direction: 1 | -1): number | undefined {
+  const current = parseTextSize(typed, size);
+  if (direction > 0 ? current >= MAX_TEXT_SIZE : current <= MIN_TEXT_SIZE) return undefined;
+  return stepTextSize(current, direction);
+}
+
 /** Size of the settings button, square, in the plot's top right corner. */
 const BUTTON = 22;
 const EDGE = 4;
@@ -97,10 +108,16 @@ export function Settings({ width, fontSize, open, size, onOpenChange, onSizeChan
   const largerX = unitX + unitWidth + gap * 2;
 
   const stepButton = (label: string, symbol: string, left: number, direction: 1 | -1) => {
-    const enabled = direction > 0 ? size < MAX_TEXT_SIZE : size > MIN_TEXT_SIZE;
-    // From the typed size, if any: a browser that keeps focus in the field on the press has not
-    // applied it yet.
-    const act = () => enabled && onSizeChange(stepTextSize(parseTextSize(draft, size), direction));
+    // From what the field holds: a browser that keeps focus in the field on the press has not
+    // applied a typed size yet. The field then shows the result, even when it is the size
+    // already applied.
+    const next = stepFrom(draft, size, direction);
+    const enabled = next !== undefined;
+    const act = () => {
+      if (next === undefined) return;
+      setDraft(String(next));
+      if (next !== size) onSizeChange(next);
+    };
     return (
       <g
         aria-disabled={enabled ? undefined : true}

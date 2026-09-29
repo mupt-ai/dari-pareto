@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { chipKey, groupsOf, layoutGroups } from "../src/Groups";
 import { orderGroups } from "../src/order";
 import { ParetoSvg } from "../src/ParetoSvg";
-import { parseTextSize, stepTextSize } from "../src/Settings";
+import { parseTextSize, stepFrom, stepTextSize } from "../src/Settings";
 import { renderParetoPlot } from "../src/static";
 
 const points = [
@@ -182,5 +182,17 @@ describe("settings", () => {
     expect(parseTextSize("-1231", 100)).toBe(50);
     expect(parseTextSize("-", 100)).toBe(100);
     expect(parseTextSize("big", 90)).toBe(90);
+  });
+
+  test("steps from what the field holds, and stops only at the end of that", () => {
+    // A typed 150 not yet applied at 200%: larger is still open, from 150.
+    expect(stepFrom("150", 200, 1)).toBe(160);
+    expect(stepFrom("200", 200, 1)).toBeUndefined();
+    expect(stepFrom("55", 100, -1)).toBe(50);
+    expect(stepFrom("50", 100, -1)).toBeUndefined();
+    // A step that lands on the applied size still gives it, for the field to show.
+    expect(stepFrom("105", 110, 1)).toBe(110);
+    // Nothing that parses: from the applied size.
+    expect(stepFrom("", 120, 1)).toBe(130);
   });
 });
