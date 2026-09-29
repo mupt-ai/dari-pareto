@@ -55,13 +55,24 @@ type SettingsProps = {
   size: number;
   /** On a touch screen, the least size of every control's target. */
   target?: number;
+  /** Which points are labelled at rest; with `onLabelsChange`, the panel lets the viewer choose. */
+  labels?: LabelChoice;
+  onLabelsChange?: (labels: LabelChoice) => void;
   onOpenChange: (open: boolean) => void;
   onSizeChange: (size: number) => void;
 };
 
+/** The points labelled at rest that a viewer can choose between in the settings panel. */
+export type LabelChoice = "frontier" | "all";
+const LABEL_CHOICES: readonly [LabelChoice, string][] = [
+  ["frontier", "Frontier"],
+  ["all", "All"],
+];
+
 /**
  * A quiet settings button in the plot's top right corner, and the panel it opens: a text size
- * control with smaller and larger buttons around the size itself, which can also be typed.
+ * control with smaller and larger buttons around the size itself, which can also be typed, and,
+ * when the plot offers it, a choice of labelling the frontier's points or all of them.
  */
 export function Settings({
   width,
@@ -69,8 +80,10 @@ export function Settings({
   open,
   size,
   target = 0,
+  labels,
   onOpenChange,
   onSizeChange,
+  onLabelsChange,
 }: SettingsProps) {
   const [draft, setDraft] = useState(String(size));
   // A new size from the buttons replaces whatever was being typed.
@@ -101,18 +114,27 @@ export function Settings({
   const padding = fontSize * 0.8;
   const control = Math.max(fontSize * 1.9, target);
   const label = "Text Size";
-  const labelWidth = label.length * fontSize * CHARACTER_WIDTH;
+  const choosing = labels !== undefined && onLabelsChange !== undefined;
+  // The rows' names share one column, so their controls line up.
+  const labelWidth = Math.max(label.length, choosing ? "Labels".length : 0) * fontSize * CHARACTER_WIDTH;
   // A touch screen's browser zooms into a field set smaller than 16px when it is tapped.
   const fieldFont = target ? Math.max(fontSize, 16) : fontSize;
   const fieldWidth = 3 * fieldFont * CHARACTER_WIDTH + fieldFont * 1.2;
   const unitWidth = fontSize * CHARACTER_WIDTH;
   const gap = fontSize * 0.4;
-  const panelWidth =
-    padding * 2 + labelWidth + fontSize + control * 2 + fieldWidth + unitWidth + gap * 4;
-  const panelHeight = control + padding * 1.2;
+  const choiceWidths = LABEL_CHOICES.map(([, name]) =>
+    Math.max(name.length * fontSize * CHARACTER_WIDTH + fontSize * 1.6, target),
+  );
+  const rowGap = gap * 2;
+  const panelWidth = Math.max(
+    padding * 2 + labelWidth + fontSize + control * 2 + fieldWidth + unitWidth + gap * 4,
+    choosing ? padding * 2 + labelWidth + fontSize + choiceWidths.reduce((a, b) => a + b, 0) : 0,
+  );
+  const panelHeight = control * (choosing ? 2 : 1) + (choosing ? rowGap : 0) + padding * 1.2;
   const panelLeft = width - EDGE - panelWidth;
   const panelTop = y + BUTTON + 4;
-  const middle = panelTop + panelHeight / 2;
+  const middle = panelTop + padding * 0.6 + control / 2;
+  const choicesMiddle = middle + control + rowGap;
   const smallerX = panelLeft + padding + labelWidth + fontSize;
   const fieldX = smallerX + control + gap;
   const unitX = fieldX + fieldWidth + gap / 2;
@@ -245,6 +267,54 @@ export function Settings({
             %
           </text>
           {stepButton("Larger Text", "+", largerX, 1)}
+          {choosing ? (
+            <>
+              <text
+                fill="var(--pareto-muted, #91a39b)"
+                x={panelLeft + padding}
+                y={choicesMiddle + (fontSize * CAP_HEIGHT) / 2}
+              >
+                Labels
+              </text>
+              <g aria-label="Labels" role="group">
+                {LABEL_CHOICES.map(([choice, name], index) => {
+                  const left =
+                    smallerX + choiceWidths.slice(0, index).reduce((a, b) => a + b, 0);
+                  const chosen = labels === choice;
+                  const choose = () => onLabelsChange?.(choice);
+                  return (
+                    <g
+                      aria-label={`Label ${name === "All" ? "All Points" : "Frontier Points"}`}
+                      aria-pressed={chosen}
+                      className={`pareto-settings-choice${chosen ? " chosen" : ""}`}
+                      key={choice}
+                      onClick={choose}
+                      onKeyDown={(event) => pressed(event, choose)}
+                      role="button"
+                      tabIndex={0}
+                    >
+                      <rect
+                        fill={chosen ? "var(--pareto-grid, #263631)" : "transparent"}
+                        height={control}
+                        stroke="var(--pareto-grid, #263631)"
+                        width={choiceWidths[index]}
+                        x={left}
+                        y={choicesMiddle - control / 2}
+                      />
+                      <text
+                        fill={chosen ? "var(--pareto-foreground, #eef4ed)" : "var(--pareto-muted, #91a39b)"}
+                        textAnchor="middle"
+                        x={left + (choiceWidths[index] ?? 0) / 2}
+                        y={choicesMiddle + (fontSize * CAP_HEIGHT) / 2}
+                      >
+                        {name}
+                      </text>
+                    </g>
+                  );
+                })}
+              </g>
+            </>
+          ) : null}
         </g>
       ) : null}
     </g>

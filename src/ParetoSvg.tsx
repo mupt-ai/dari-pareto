@@ -6,7 +6,7 @@ import { paretoFrontier, validatePoints } from "./frontier.js";
 import { GroupLegend, groupsOf, inChip, layoutGroups, parseChipKey } from "./Groups.js";
 import { CHARACTER_WIDTH, placeLabels } from "./labels.js";
 import { nearestWithin } from "./pointer.js";
-import { SETTINGS_BUTTON, Settings } from "./Settings.js";
+import { type LabelChoice, SETTINGS_BUTTON, Settings } from "./Settings.js";
 import { Tooltip } from "./Tooltip.js";
 import type { AxisOptions, ParetoPlotProps, ParetoPoint } from "./types.js";
 
@@ -100,14 +100,15 @@ const groupStyles = `
 
 /** Only with the settings button: quiet until hovered, focused or open. */
 const settingsStyles = `
-  .pareto-settings-button, .pareto-settings-step { cursor: pointer; outline: none; }
+  .pareto-settings-button, .pareto-settings-step, .pareto-settings-choice { cursor: pointer; outline: none; }
   .pareto-settings-button { opacity: .55; transition: opacity .15s; }
   .pareto-settings-button:focus-visible, .pareto-settings-button[aria-expanded="true"] { opacity: 1; }
 ${onHover(`
     .pareto-settings-button:hover { opacity: 1; }
 `)}
   .pareto-settings-step.disabled { cursor: default; opacity: .35; }
-  .pareto-settings-button:focus-visible rect, .pareto-settings-step:focus-visible rect { stroke: var(--pareto-muted, #91a39b); }
+  .pareto-settings-button:focus-visible rect, .pareto-settings-step:focus-visible rect,
+  .pareto-settings-choice:focus-visible rect { stroke: var(--pareto-muted, #91a39b); }
   .pareto-settings-field {
     box-sizing: border-box; width: 100%; height: 100%; margin: 0; padding: 0;
     border: 1px solid var(--pareto-grid, #263631); border-radius: 0; outline: none;
@@ -157,6 +158,11 @@ type ParetoSvgProps = ParetoPlotProps & {
   touchTarget?: number;
   /** The root element, for measuring the size the plot is drawn at. */
   svgRef?: Ref<SVGSVGElement>;
+  /**
+   * Lets the viewer choose, in the settings panel, between labelling the frontier's points and
+   * all of them; `showPointLabels` is the current choice.
+   */
+  onPointLabelsChange?: (labels: LabelChoice) => void;
   /** Whether the settings panel is open, and the viewer's text size in percent. */
   settingsOpen?: boolean;
   textSize?: number;
@@ -200,6 +206,7 @@ export function ParetoSvg({
   onExpandedGroupsChange,
   touchTarget = 0,
   svgRef,
+  onPointLabelsChange,
   settingsOpen = false,
   textSize = 100,
   onSettingsOpenChange,
@@ -314,19 +321,27 @@ export function ParetoSvg({
   };
 
   const labelSize = size(8);
+  // A highlighted chip's points are all labelled, on or off the frontier: they are what the
+  // viewer is looking at, and the other groups have stepped back.
+  const inHighlight = (point: ParetoPoint) => highlighted !== null && inChip(point, highlighted);
   const labelled = (point: ParetoPoint) =>
-    showPointLabels === "all" || (showPointLabels === "frontier" && frontierIds.has(point.id));
-  // Automatic placement settles every resting label up front, frontier labels first.
+    showPointLabels === "all" ||
+    (showPointLabels === "frontier" && frontierIds.has(point.id)) ||
+    inHighlight(point);
+  // Automatic placement settles every resting label up front, frontier labels first. While a chip
+  // is highlighted only its points are labelled, placed among its own points: the rest have
+  // stepped back, so their labels give way and their marks no longer crowd the chip's labels out.
+  const placing = highlighted === null ? points : points.filter(inHighlight);
   const placed =
     labelPlacement === "auto"
       ? new Map(
           placeLabels(
-            points
+            placing
               .filter(labelled)
               .sort((left, right) => Number(frontierIds.has(right.id)) - Number(frontierIds.has(left.id)))
               .map((point) => ({ id: point.id, x: scaleX(point.x), y: scaleY(point.y), text: point.label })),
             {
-              markers: points.map((point) => ({ x: scaleX(point.x), y: scaleY(point.y), radius: 5 })),
+              markers: placing.map((point) => ({ x: scaleX(point.x), y: scaleY(point.y), radius: 5 })),
               lines: [frontier.map((point) => ({ x: scaleX(point.x), y: scaleY(point.y) }))],
               bounds: { x: left, y: top, width: plotWidth, height: plotHeight },
               fontSize: labelSize,
@@ -674,6 +689,9 @@ export function ParetoSvg({
           size={textSize}
           target={touchTarget}
           width={width}
+          {...(onPointLabelsChange && (showPointLabels === "frontier" || showPointLabels === "all")
+            ? { labels: showPointLabels, onLabelsChange: onPointLabelsChange }
+            : {})}
         />
       ) : null}
 

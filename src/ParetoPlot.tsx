@@ -2,6 +2,7 @@ import { type RefObject, useEffect, useRef, useState } from "react";
 
 import { inChip } from "./Groups.js";
 import { DEFAULT_WIDTH, ParetoSvg, TOUCH_TARGET } from "./ParetoSvg.js";
+import type { LabelChoice } from "./Settings.js";
 import type { ParetoPlotProps } from "./types.js";
 
 /** Whether the main pointer is coarse, such as a finger; false until the page has loaded. */
@@ -59,6 +60,11 @@ export function ParetoPlot(props: ParetoPlotProps) {
   const [expandedGroups, setExpandedGroups] = useState<string[]>([]);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [textSize, setTextSize] = useState(100);
+  // The viewer's own choice of labels from the settings panel; until they make one, the plot
+  // follows `showPointLabels`, including when the page changes it (on resize, say).
+  const [labels, setLabels] = useState<LabelChoice | null>(null);
+  const choosable =
+    props.showSettings === true && (props.showPointLabels === "frontier" || props.showPointLabels === "all");
   // The page hears which point is inspected and which chip is highlighted, as they change.
   useReport(hoveredId ?? focusedId, (id) =>
     props.onActivePointChange?.(props.points.find((point) => point.id === id) ?? null),
@@ -69,6 +75,8 @@ export function ParetoPlot(props: ParetoPlotProps) {
   return (
     <ParetoSvg
       {...props}
+      showPointLabels={choosable && labels ? labels : props.showPointLabels}
+      {...(choosable ? { onPointLabelsChange: setLabels } : {})}
       focusedId={focusedId}
       hoveredId={hoveredId}
       onFocusedIdChange={setFocusedId}

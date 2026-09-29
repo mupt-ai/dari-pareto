@@ -141,8 +141,11 @@ as before.
 - **Groups.** Give each point a `group` (such as the vendor that made a model)
   and set `showGroups: true` for a row of chips above the plot, one per group,
   colored like the group's first point. Hovering or focusing a chip fades every
-  point and label outside its group; a click or tap holds the highlight until
-  the chip is pressed again. Static plots show the chips as a key.
+  point outside its group and labels every point in it, on the frontier or off
+  it, whatever `showPointLabels` says. With automatic placement only the group's
+  labels show while it is highlighted, placed among its own points. A click or
+  tap holds the highlight until the chip is pressed again. Static plots show the
+  chips as a key.
 - **Reporting to the page.** `onActivePointChange` is called with the point being
   inspected (hovered, focused or tapped) whenever it changes, and with `null` when
   none is. `onHighlightChange` is called with the points of the highlighted group
@@ -168,6 +171,10 @@ as before.
   size from 50 to 200 percent: typed (kept in range, to a whole percent, applied
   on Enter or on leaving the field), or with smaller and larger buttons that move
   to the next multiple of 10. Larger text also grows the space around the axes.
+  When `showPointLabels` is `"frontier"` or `"all"`, the panel also offers
+  **Labels: Frontier | All**, starting from the plot's own setting. The viewer's
+  choice holds until they change it; until they make one, the plot follows
+  `showPointLabels`, including when the page changes it.
 - **Label placement.** `labelPlacement: "auto"` places each label from
   `showPointLabels` above, beside, below or diagonally off its point, wherever it
   covers no point and no other label and is nearer its own point than any other,

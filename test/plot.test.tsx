@@ -328,6 +328,39 @@ describe("ParetoPlot touch targets", () => {
   });
 });
 
+describe("ParetoPlot label choice", () => {
+  const panel = (extra: Partial<Parameters<typeof ParetoSvg>[0]>) =>
+    ParetoSvg({ ...props, showSettings: true, settingsOpen: true, ...extra }) as ReactElement<Record<string, unknown>>;
+  // The settings panel element, found by the props it is given.
+  const settingsOf = (node: ReactNode): ReactElement<Record<string, unknown>> | undefined => {
+    let found: ReactElement<Record<string, unknown>> | undefined;
+    Children.forEach(node, (child) => {
+      if (found || !isValidElement(child)) return;
+      const element = child as ReactElement<Record<string, unknown>>;
+      found = "onSizeChange" in element.props ? element : settingsOf(element.props.children as ReactNode);
+    });
+    return found;
+  };
+
+  test("offers frontier or all labels in the settings panel, starting from the plot's own", () => {
+    const chosen: string[] = [];
+    const svg = panel({ showPointLabels: "frontier", onPointLabelsChange: (labels) => chosen.push(labels) });
+    const markup = renderToStaticMarkup(svg);
+    expect(markup).toContain(">Labels</text>");
+    expect(markup).toMatch(/aria-label="Label Frontier Points" aria-pressed="true"/);
+    expect(markup).toMatch(/aria-label="Label All Points" aria-pressed="false"/);
+    (settingsOf(svg)?.props.onLabelsChange as (labels: string) => void)("all");
+    expect(chosen).toEqual(["all"]);
+  });
+
+  test("leaves the choice out when the plot does not offer it", () => {
+    expect(renderToStaticMarkup(panel({ showPointLabels: "frontier" }))).not.toContain(">Labels</text>");
+    expect(renderToStaticMarkup(panel({ showPointLabels: "none", onPointLabelsChange: () => {} }))).not.toContain(
+      ">Labels</text>",
+    );
+  });
+});
+
 describe("ParetoPlot hover radius", () => {
   test("inspects the nearest point within the radius, and nothing beyond it", () => {
     let hovered = null as string | null;

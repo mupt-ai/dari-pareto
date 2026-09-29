@@ -93,6 +93,34 @@ describe("groups", () => {
   });
 });
 
+describe("labels while a chip is highlighted", () => {
+  // Acme's "Low" is dominated by Bolt's "Win"; only frontier points are labelled at rest.
+  const mixed = [
+    { id: "win", label: "Win", x: 1, y: 90, group: "Bolt" },
+    { id: "top", label: "Top", x: 3, y: 95, group: "Acme", subgroup: "big" },
+    { id: "low", label: "Low", x: 2, y: 60, group: "Acme", subgroup: "small" },
+  ];
+  const labels = (extra: Record<string, unknown> = {}) => {
+    const markup = renderToStaticMarkup(
+      ParetoSvg({ ...props, points: mixed, showPointLabels: "frontier", labelPlacement: "auto", ...extra }),
+    );
+    return [...markup.matchAll(/class="pareto-point-label[^"]*"[^>]*>([^<]+)</g)].map((match) => match[1]).sort();
+  };
+
+  test("label every point of the highlighted group, on or off the frontier, and only those", () => {
+    expect(labels()).toEqual(["Top", "Win"]);
+    expect(labels({ hoveredGroup: chipKey("Acme") })).toEqual(["Low", "Top"]);
+    expect(labels({ pinnedGroup: chipKey("Acme") })).toEqual(["Low", "Top"]);
+  });
+
+  test("label only a highlighted subgroup's points", () => {
+    expect(labels({ hoveredGroup: chipKey("Acme", "small"), expandedGroups: ["Acme"] })).toEqual(["Low"]);
+    expect(labels({ showPointLabels: "none", hoveredGroup: chipKey("Acme", "small"), expandedGroups: ["Acme"] })).toEqual([
+      "Low",
+    ]);
+  });
+});
+
 describe("group order", () => {
   const many = ["Cove", "Acme", "Bolt", "Acme", "Custom", "Bolt", "Acme"].map((group, index) => ({
     id: String(index),
