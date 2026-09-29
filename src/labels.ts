@@ -61,6 +61,13 @@ function crosses(box: Box, from: Point, to: Point): boolean {
   return true;
 }
 
+/** How far `point` is from the nearest edge of `box`; zero inside it. */
+function distanceTo(box: Box, point: Point): number {
+  const dx = Math.max(box.x - point.x, 0, point.x - (box.x + box.width));
+  const dy = Math.max(box.y - point.y, 0, point.y - (box.y + box.height));
+  return Math.hypot(dx, dy);
+}
+
 function inside(box: Box, bounds: Box): boolean {
   return (
     box.x >= bounds.x &&
@@ -73,7 +80,9 @@ function inside(box: Box, bounds: Box): boolean {
 /**
  * Greedy label placement. Labels are placed in the order given; each tries the `SPOTS` around
  * its point and takes the first inside `bounds` that covers no marker and no label placed
- * before it, preferring one that no line runs through. A label that fits nowhere is left out.
+ * before it, and that sits nearer its own point than any other, so no label reads as another
+ * point's; it prefers a spot no line runs through. A label that fits nowhere is left out: it
+ * still shows on hover, and hiding a point under a label would be worse.
  */
 export function placeLabels(
   labels: readonly (Point & { id: string; text: string })[],
@@ -114,7 +123,16 @@ export function placeLabels(
       inside(box, bounds) && !taken.some((other) => overlaps(box, other));
     const clear = ([box]: [Box, PlacedLabel]) =>
       !segments.some(([from, to]) => crosses(box, from, to));
-    const spot = spots.find((candidate) => free(candidate) && clear(candidate)) ?? spots.find(free);
+    const own = (candidate: [Box, PlacedLabel]) => {
+      const [box] = candidate;
+      const distance = distanceTo(box, { x, y });
+      return !markers.some(
+        (marker) =>
+          (marker.x !== x || marker.y !== y) && distanceTo(box, marker) < distance,
+      );
+    };
+    const usable = (candidate: [Box, PlacedLabel]) => free(candidate) && own(candidate);
+    const spot = spots.find((candidate) => usable(candidate) && clear(candidate)) ?? spots.find(usable);
     if (!spot) continue;
     taken.push(spot[0]);
     placed.push(spot[1]);

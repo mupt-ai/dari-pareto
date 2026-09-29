@@ -48,4 +48,19 @@ describe("placeLabels", () => {
     const around = [[{ x: 0, y: 80 }, { x: 400, y: 80 }], [{ x: 0, y: 100 }, { x: 400, y: 100 }], [{ x: 0, y: 118 }, { x: 400, y: 118 }]];
     expect(placeLabels([label], { markers: [], lines: around, bounds, fontSize: 10 })).toHaveLength(1);
   });
+
+  test("never sits nearer another point than its own", () => {
+    // A neighbour just right of the point rules out the right-hand spots and the diagonals
+    // towards it, however free they are.
+    const [label] = placeLabels([{ id: "a", x: 100, y: 100, text: "Alpha" }], {
+      markers: [
+        { x: 100, y: 100, radius: 5 },
+        { x: 136, y: 100, radius: 5 },
+      ],
+      lines: [[{ x: 100, y: 100 }, { x: 100, y: 0 }]],
+      bounds,
+      fontSize: 10,
+    });
+    expect(label?.anchor).toBe("end");
+  });
 });
