@@ -52,6 +52,8 @@ type SettingsProps = {
   open: boolean;
   /** The viewer's text size, in percent. */
   size: number;
+  /** On a touch screen, the least size of every control's target. */
+  target?: number;
   onOpenChange: (open: boolean) => void;
   onSizeChange: (size: number) => void;
 };
@@ -60,7 +62,15 @@ type SettingsProps = {
  * A quiet settings button in the plot's top right corner, and the panel it opens: a text size
  * control with smaller and larger buttons around the size itself, which can also be typed.
  */
-export function Settings({ width, fontSize, open, size, onOpenChange, onSizeChange }: SettingsProps) {
+export function Settings({
+  width,
+  fontSize,
+  open,
+  size,
+  target = 0,
+  onOpenChange,
+  onSizeChange,
+}: SettingsProps) {
   const [draft, setDraft] = useState(String(size));
   // A new size from the buttons replaces whatever was being typed.
   useEffect(() => setDraft(String(size)), [size]);
@@ -88,10 +98,12 @@ export function Settings({ width, fontSize, open, size, onOpenChange, onSizeChan
   };
 
   const padding = fontSize * 0.8;
-  const control = fontSize * 1.9;
+  const control = Math.max(fontSize * 1.9, target);
   const label = "Text Size";
   const labelWidth = label.length * fontSize * CHARACTER_WIDTH;
-  const fieldWidth = 3 * fontSize * CHARACTER_WIDTH + fontSize * 1.2;
+  // A touch screen's browser zooms into a field set smaller than 16px when it is tapped.
+  const fieldFont = target ? Math.max(fontSize, 16) : fontSize;
+  const fieldWidth = 3 * fieldFont * CHARACTER_WIDTH + fieldFont * 1.2;
   const unitWidth = fontSize * CHARACTER_WIDTH;
   const gap = fontSize * 0.4;
   const panelWidth =
@@ -160,7 +172,14 @@ export function Settings({ width, fontSize, open, size, onOpenChange, onSizeChan
         role="button"
         tabIndex={0}
       >
-        <rect fill="transparent" height={BUTTON} width={BUTTON} x={x} y={y} />
+        {/* The button's target: the icon, or on a touch screen the corner a fingertip covers. */}
+        <rect
+          fill="transparent"
+          height={Math.max(BUTTON, target)}
+          width={Math.max(BUTTON, target)}
+          x={target > BUTTON ? width - target : x}
+          y={target > BUTTON ? 0 : y}
+        />
         {/* Three sliders. */}
         {[
           [-4, 13],
@@ -216,7 +235,7 @@ export function Settings({ width, fontSize, open, size, onOpenChange, onSizeChan
                   onOpenChange(false);
                 }
               }}
-              style={{ fontSize }}
+              style={{ fontSize: fieldFont }}
               type="text"
               value={draft}
             />

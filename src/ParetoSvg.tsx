@@ -29,6 +29,8 @@ const TICK_MARK = 5;
  * the filled, Pareto-efficient points the heavier mark at the same apparent size.
  */
 const RING_RADIUS = 3.5;
+/** The least a fingertip needs, in px: a control's target on a touch screen. */
+export const TOUCH_TARGET = 44;
 
 const baseStyle = {
   display: "block",
@@ -40,26 +42,43 @@ const baseStyle = {
   overflow: "visible",
 } satisfies CSSProperties;
 
+/**
+ * Hover looks apply only where the pointer can hover: after a tap on a touch screen, `:hover`
+ * would stay on until the next tap elsewhere. Focus and selection show the same look anywhere.
+ */
+const onHover = (rules: string) => `
+  @media (hover: hover) {${rules}  }
+`;
+
+const pointHighlight = `
+    fill: var(--pareto-frontier, #8ee6bd); stroke: var(--pareto-frontier, #8ee6bd);
+    filter: drop-shadow(0 0 5px var(--pareto-glow, rgba(142, 230, 189, .7)));
+`;
+
 const chartStyles = `
   .pareto-point { cursor: pointer; outline: none; }
   .pareto-point circle { stroke: var(--pareto-background, #09100f); stroke-width: 2; transition: .2s; }
   .pareto-point-label { opacity: 0; pointer-events: none; transition: .2s; }
   .pareto-point-label.visible { opacity: 1; }
-  .pareto-point:hover circle, .pareto-point:focus circle, .pareto-point.selected circle {
-    fill: var(--pareto-frontier, #8ee6bd); stroke: var(--pareto-frontier, #8ee6bd);
-    filter: drop-shadow(0 0 5px var(--pareto-glow, rgba(142, 230, 189, .7)));
-  }
-  .pareto-point:hover .pareto-point-label, .pareto-point:focus .pareto-point-label, .pareto-point.selected .pareto-point-label { opacity: 1; }
+  .pareto-point:focus circle, .pareto-point.selected circle {${pointHighlight}  }
+  .pareto-point:focus .pareto-point-label, .pareto-point.selected .pareto-point-label { opacity: 1; }
+${onHover(`
+    .pareto-point:hover circle {${pointHighlight}    }
+    .pareto-point:hover .pareto-point-label { opacity: 1; }
+`)}`;
+
+const coloredHighlight = `
+    fill: var(--pareto-point-color); stroke: var(--pareto-point-color);
+    filter: drop-shadow(0 0 5px var(--pareto-glow, color-mix(in srgb, var(--pareto-point-color) 70%, transparent)));
 `;
 
 /** Only when a point has its own color: dominated points are rings, and hover keeps the color. */
 const colorStyles = `
   .pareto-point.colored:not(.efficient) circle { stroke: var(--pareto-point-color); stroke-width: 1.5; }
-  .pareto-point.colored:hover circle, .pareto-point.colored:focus circle, .pareto-point.colored.selected circle {
-    fill: var(--pareto-point-color); stroke: var(--pareto-point-color);
-    filter: drop-shadow(0 0 5px var(--pareto-glow, color-mix(in srgb, var(--pareto-point-color) 70%, transparent)));
-  }
-`;
+  .pareto-point.colored:focus circle, .pareto-point.colored.selected circle {${coloredHighlight}  }
+${onHover(`
+    .pareto-point.colored:hover circle {${coloredHighlight}    }
+`)}`;
 
 /** Only with the tooltip: while it shows, the other labels step back. */
 const tooltipStyles = `
@@ -83,7 +102,10 @@ const groupStyles = `
 const settingsStyles = `
   .pareto-settings-button, .pareto-settings-step { cursor: pointer; outline: none; }
   .pareto-settings-button { opacity: .55; transition: opacity .15s; }
-  .pareto-settings-button:hover, .pareto-settings-button:focus-visible, .pareto-settings-button[aria-expanded="true"] { opacity: 1; }
+  .pareto-settings-button:focus-visible, .pareto-settings-button[aria-expanded="true"] { opacity: 1; }
+${onHover(`
+    .pareto-settings-button:hover { opacity: 1; }
+`)}
   .pareto-settings-step.disabled { cursor: default; opacity: .35; }
   .pareto-settings-button:focus-visible rect, .pareto-settings-step:focus-visible rect { stroke: var(--pareto-muted, #91a39b); }
   .pareto-settings-field {
@@ -126,6 +148,11 @@ type ParetoSvgProps = ParetoPlotProps & {
   /** Groups whose subgroups are listed as chips of their own. */
   expandedGroups?: readonly string[];
   onExpandedGroupsChange?: (groups: string[]) => void;
+  /**
+   * A coarse pointer, such as a finger. Chips, their chevrons and the settings controls then get
+   * targets `TOUCH_TARGET` across, with the chip rows spaced to fit.
+   */
+  touch?: boolean;
   /** Whether the settings panel is open, and the viewer's text size in percent. */
   settingsOpen?: boolean;
   textSize?: number;
@@ -167,6 +194,7 @@ export function ParetoSvg({
   onPinnedGroupChange,
   expandedGroups = [],
   onExpandedGroupsChange,
+  touch = false,
   settingsOpen = false,
   textSize = 100,
   onSettingsOpenChange,
@@ -238,6 +266,7 @@ export function ParetoSvg({
     maxWidth: plotWidth,
     fontSize: size(9),
     expandable: interactive,
+    target: touch ? TOUCH_TARGET : 0,
   });
   const baseTop = showTitle || showLegend ? MARGIN.top : BARE_TOP;
   const top = groups.length > 0 ? Math.max(baseTop, chipsTop + legend.height + 10) : baseTop;
@@ -553,6 +582,18 @@ export function ParetoSvg({
               >
                 {!interactive ? <title>{pointDescription(point, xAxis, yAxis, efficient)}</title> : null}
               </circle>
+              {nearHover ? (
+                // The point's target, a fingertip across. The pointer still picks the nearest
+                // point within hoverRadius; this gives the point the size it is picked at. The
+                // inline style keeps the point's own looks off it.
+                <circle
+                  className="pareto-hit"
+                  cx={scaleX(point.x)}
+                  cy={scaleY(point.y)}
+                  r={Math.min(hoverRadius ?? 0, TOUCH_TARGET / 2)}
+                  style={{ fill: "transparent", stroke: "none", filter: "none" }}
+                />
+              ) : null}
             </g>
           );
         })}
@@ -622,6 +663,7 @@ export function ParetoSvg({
           onSizeChange={(size) => onTextSizeChange?.(size)}
           open={settingsOpen}
           size={textSize}
+          target={touch ? TOUCH_TARGET : 0}
           width={width}
         />
       ) : null}

@@ -239,6 +239,52 @@ describe("ParetoPlot layering and settings", () => {
   });
 });
 
+describe("ParetoPlot on touch screens", () => {
+  const grouped = props.points.map((point) => ({ ...point, group: point.id === "large" ? "Top" : "Rest" }));
+  const ungated = (markup: string) =>
+    markup
+      .replace(/@media \(hover: hover\) \{[^{}]*(\{[^{}]*\}[^{}]*)*\}/g, "")
+      .match(/[^{}]*:hover[^{}]*\{/g) ?? [];
+
+  test("keeps every hover look behind @media (hover: hover), so a tap cannot leave it on", () => {
+    const markup = renderToStaticMarkup(
+      ParetoSvg({
+        ...props,
+        points: grouped.map((point) => ({ ...point, color: "#123456" })),
+        showGroups: true,
+        showSettings: true,
+        showTooltip: true,
+      }),
+    );
+    expect(markup).toContain("@media (hover: hover)");
+    expect(ungated(markup)).toEqual([]);
+  });
+
+  test("gives points a fingertip target only when the pointer picks by radius", () => {
+    const hits = (extra: Partial<ParetoPlotProps>) =>
+      [...renderToStaticMarkup(ParetoSvg({ ...props, ...extra })).matchAll(/class="pareto-hit"[^>]*r="([\d.]+)"/g)].map(
+        (match) => Number(match[1]),
+      );
+    expect(hits({})).toEqual([]);
+    expect(hits({ hoverRadius: 36 })).toEqual([22, 22, 22]);
+    expect(hits({ hoverRadius: 10 })).toEqual([10, 10, 10]);
+    expect(hits({ hoverRadius: 36, mode: "static" })).toEqual([]);
+  });
+
+  test("sizes chips and the settings button for a fingertip on touch, and only then", () => {
+    const heights = (touch: boolean) => {
+      const markup = renderToStaticMarkup(
+        ParetoSvg({ ...props, points: grouped, showGroups: true, showSettings: true, touch }),
+      );
+      const chip = markup.match(/aria-label="Highlight Top"[^>]*><rect[^>]*height="([\d.]+)"/)?.[1];
+      const settings = markup.match(/aria-label="Plot Settings"[^>]*><rect[^>]*height="([\d.]+)"/)?.[1];
+      return [Number(chip), Number(settings)];
+    };
+    expect(heights(false)).toEqual([18, 22]);
+    expect(heights(true)).toEqual([44, 44]);
+  });
+});
+
 describe("ParetoPlot hover radius", () => {
   test("inspects the nearest point within the radius, and nothing beyond it", () => {
     let hovered = null as string | null;

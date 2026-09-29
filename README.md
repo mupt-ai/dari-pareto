@@ -136,7 +136,8 @@ as before.
   within that many pixels instead of only the one directly under it. On touch
   screens a tap does the same, a tap away from every point puts the card away,
   and a touch that turns into a scroll opens nothing. Clicks select the nearest
-  point in reach.
+  point in reach. Each point also gets a transparent target up to 44px across
+  (never wider than the radius), the size a fingertip needs.
 - **Groups.** Give each point a `group` (such as the vendor that made a model)
   and set `showGroups: true` for a row of chips above the plot, one per group,
   colored like the group's first point. Hovering or focusing a chip fades every
@@ -178,6 +179,11 @@ as before.
   `showLegend: false` as well, the plot drops the space kept above it for them.
   `textScale` multiplies every text size and fits the left margin to the y-axis
   tick labels, so larger text or wider labels keep a gap from the y-axis title.
+- **Touch screens.** Where the main pointer is coarse, such as a finger, chips,
+  their chevrons and the settings controls get 44px targets, with the chip rows
+  spaced to fit, and the text size field uses at least 16px text so the browser
+  does not zoom into it. Hover looks apply only where the pointer can hover
+  (`@media (hover: hover)`), so a tap never leaves one on.
 
 ## Styling
 

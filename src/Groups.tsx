@@ -34,6 +34,11 @@ type Chip = {
   y: number;
   /** The chip's dot and name; a chevron, if any, sits after it. */
   width: number;
+  /** The chip's target: its row's height, and at least `target` wide. */
+  hitWidth: number;
+  hitHeight: number;
+  /** The chevron's target width, from just before the chevron. */
+  toggleWidth: number;
 };
 
 const fallback = "var(--pareto-frontier, #8ee6bd)";
@@ -69,7 +74,8 @@ export function groupsOf(
 /**
  * Chips in rows from `left`, wrapping within `maxWidth`: each group, followed by its subgroups
  * when it is expanded. A group with subgroups gets room for a chevron unless `expandable` is
- * false, as on a static plot. `height` is the rows' total height.
+ * false, as on a static plot. `target`, for a touch screen, is the least size of every chip's
+ * and chevron's target; rows are spaced to fit it. `height` is the rows' total height.
  */
 export function layoutGroups(
   groups: readonly Group[],
@@ -80,22 +86,38 @@ export function layoutGroups(
     maxWidth,
     fontSize,
     expandable: canExpand = true,
-  }: { left: number; top: number; maxWidth: number; fontSize: number; expandable?: boolean },
+    target = 0,
+  }: {
+    left: number;
+    top: number;
+    maxWidth: number;
+    fontSize: number;
+    expandable?: boolean;
+    target?: number;
+  },
 ): { chips: Chip[]; height: number } {
-  const rowHeight = fontSize * 2;
+  const rowHeight = Math.max(fontSize * 2, target);
   const spacing = fontSize * 1.4;
+  const toggleWidth = Math.max(fontSize * 1.2, target);
   const chips: Chip[] = [];
   let x = left;
   let row = 0;
-  const place = (chip: Omit<Chip, "x" | "y" | "width">) => {
+  const place = (chip: Omit<Chip, "x" | "y" | "width" | "hitWidth" | "hitHeight" | "toggleWidth">) => {
     const width = fontSize * 1.3 + chip.name.length * fontSize * CHARACTER_WIDTH;
+    const hitWidth = Math.max(width + fontSize * 0.8, target);
     const room = width + (chip.expandable ? fontSize * 1.3 : 0);
-    if (x > left && x + room > left + maxWidth) {
+    // On a touch screen the targets can be wider than the chip; the next chip starts after them.
+    // The chevron's target starts just before it, 0.55 em past the name.
+    const reach = target
+      ? Math.max(room, hitWidth - fontSize * 0.4, chip.expandable ? width - fontSize * 0.05 + toggleWidth : 0)
+      : room;
+    if (x > left && x + reach > left + maxWidth) {
       x = left;
       row++;
     }
-    chips.push({ ...chip, x, y: top + row * rowHeight + rowHeight / 2, width });
-    x += room + spacing;
+    const y = top + row * rowHeight + rowHeight / 2;
+    chips.push({ ...chip, x, y, width, hitWidth, hitHeight: rowHeight, toggleWidth });
+    x += reach + spacing;
   };
   for (const group of groups) {
     const expandable = canExpand && group.subgroups.length > 0;
@@ -181,10 +203,10 @@ export function GroupLegend({
             >
               <rect
                 fill="transparent"
-                height={fontSize * 2}
-                width={chip.width + fontSize * 0.8}
+                height={chip.hitHeight}
+                width={chip.hitWidth}
                 x={chip.x - fontSize * 0.4}
-                y={chip.y - fontSize}
+                y={chip.y - chip.hitHeight / 2}
               />
               <circle cx={chip.x + fontSize * 0.35} cy={chip.y} fill={chip.color} r={fontSize * 0.35} />
               {/* Centered on the dot and the chevron (see CAP_HEIGHT). */}
@@ -208,10 +230,10 @@ export function GroupLegend({
               >
                 <rect
                   fill="transparent"
-                  height={fontSize * 2}
-                  width={fontSize * 1.2}
+                  height={chip.hitHeight}
+                  width={chip.toggleWidth}
                   x={chevronX - fontSize * 0.6}
-                  y={chip.y - fontSize}
+                  y={chip.y - chip.hitHeight / 2}
                 />
                 <path
                   d={
