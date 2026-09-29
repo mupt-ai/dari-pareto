@@ -88,8 +88,13 @@ function niceScale(
     if (dataMinimum >= 0 && dataMaximum > 0) low = 0;
     if (dataMaximum <= 0 && dataMinimum < 0) high = 0;
   }
-  // One step for both the domain and the ticks, so an inferred domain ends on ticks.
-  const step = niceStep((high - low) / (requested - 1));
+  // One step for both the domain and the ticks, so an inferred domain ends on ticks. An explicit
+  // domain narrower than that step could hold no tick at all, so its step shrinks until two fit.
+  let step = niceStep((high - low) / (requested - 1));
+  const fitting = (size: number) => Math.floor(round(high / size)) - Math.ceil(round(low / size)) + 1;
+  for (let tries = 0; axis.domain && high > low && fitting(step) < 2 && tries < 60; tries++) {
+    step = smallerStep(step);
+  }
   const start = axis.domain ? Math.ceil(round(low / step)) : Math.floor(round(low / step));
   const end = axis.domain ? Math.floor(round(high / step)) : Math.ceil(round(high / step));
   return {
@@ -179,6 +184,13 @@ function logTicks(low: number, high: number, requested: number): { ticks: number
     ticks.push(round(index * step));
   }
   return { ticks, step };
+}
+
+/** The next round step below `step`: …, 1, 2, 2.5, 5, 10, … */
+function smallerStep(step: number): number {
+  const power = 10 ** Math.floor(Math.log10(step) + 1e-9);
+  const below = [5, 2.5, 2, 1].find((multiple) => multiple < round(step / power) - 1e-9);
+  return round((below ?? 0.5) * power);
 }
 
 /** The round step (1, 2, 2.5 or 5 times a power of ten) closest to `raw` on a log scale. */

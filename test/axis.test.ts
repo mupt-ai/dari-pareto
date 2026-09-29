@@ -63,6 +63,11 @@ describe("axisScale", () => {
   });
 });
 
+test("keeps at least two round ticks inside an explicit domain narrower than the step", () => {
+  const { ticks } = axisScale([3.33], { ...axis, domain: [3.31, 3.39], nice: true, ticks: 2 });
+  expect(ticks).toEqual([3.325, 3.35, 3.375]);
+});
+
 describe("log axis", () => {
   const log = { ...axis, scale: "log" as const, nice: true, ticks: 6 };
 

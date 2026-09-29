@@ -98,7 +98,9 @@ export function Settings({ width, fontSize, open, size, onOpenChange, onSizeChan
 
   const stepButton = (label: string, symbol: string, left: number, direction: 1 | -1) => {
     const enabled = direction > 0 ? size < MAX_TEXT_SIZE : size > MIN_TEXT_SIZE;
-    const act = () => enabled && onSizeChange(stepTextSize(size, direction));
+    // From the typed size, if any: a browser that keeps focus in the field on the press has not
+    // applied it yet.
+    const act = () => enabled && onSizeChange(stepTextSize(parseTextSize(draft, size), direction));
     return (
       <g
         aria-disabled={enabled ? undefined : true}
