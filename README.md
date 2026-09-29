@@ -137,6 +137,15 @@ as before.
   colored like the group's first point. Hovering or focusing a chip fades every
   point and label outside its group; a click or tap holds the highlight until
   the chip is pressed again. Static plots show the chips as a key.
+- **Subgroups.** A point's `subgroup` is a finer group within its `group`, such
+  as the model behind a custom endpoint. A group with subgroups gets a chevron
+  after its chip's name: it lists the subgroups as chips of their own, each in
+  the next `palette` color while listed, without recoloring any other group.
+  Static plots show the groups as they are.
+- **Group order.** `groupOrder: { first, rest, last }` orders the chips, and the
+  palette colors groups take: the groups named in `first`, in that order; then
+  the rest by first appearance or by `rest: "count"`, most points first; then the
+  groups named in `last`, such as `["Custom"]`, whatever the other rules say.
 - **Palette.** `palette: ["#hex", …]` colors points that have no `color` of their
   own: each group (or each point, without groups) takes the next color in order
   of first appearance, starting over when there are more groups than colors.

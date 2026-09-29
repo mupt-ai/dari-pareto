@@ -8,6 +8,7 @@ export function ParetoPlot(props: ParetoPlotProps) {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [hoveredGroup, setHoveredGroup] = useState<string | null>(null);
   const [pinnedGroup, setPinnedGroup] = useState<string | null>(null);
+  const [expandedGroups, setExpandedGroups] = useState<string[]>([]);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [textSize, setTextSize] = useState(100);
   return (
@@ -21,6 +22,8 @@ export function ParetoPlot(props: ParetoPlotProps) {
       pinnedGroup={pinnedGroup}
       onHoveredGroupChange={setHoveredGroup}
       onPinnedGroupChange={setPinnedGroup}
+      expandedGroups={expandedGroups}
+      onExpandedGroupsChange={setExpandedGroups}
       settingsOpen={settingsOpen}
       textSize={textSize}
       onSettingsOpenChange={setSettingsOpen}

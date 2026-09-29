@@ -4,6 +4,7 @@ export { dominates, paretoFrontier, validatePoints } from "./frontier.js";
 export type {
   AxisOptions,
   FrontierOptions,
+  GroupOrder,
   Objective,
   ParetoPlotMode,
   ParetoPlotProps,

@@ -18,6 +18,22 @@ export type ParetoPoint = {
    * gets a chip above the plot, colored like its first point.
    */
   group?: string;
+  /**
+   * A finer group within `group`, such as the model behind a custom endpoint. A group with
+   * subgroups gets a chevron on its chip that lists them as chips of their own, each in the
+   * next `palette` color while listed.
+   */
+  subgroup?: string;
+};
+
+/** The order of group chips; see `ParetoPlotProps.groupOrder`. */
+export type GroupOrder = {
+  /** Groups named here come first, in this order, when the plot has them. */
+  first?: readonly string[];
+  /** The order of every other group: "appearance" (the default) or "count", most points first. */
+  rest?: "appearance" | "count";
+  /** Groups named here come last, in this order, whatever the other rules say. */
+  last?: readonly string[];
 };
 
 export type AxisOptions = {
@@ -93,6 +109,11 @@ export type ParetoPlotProps = {
    * again. Static plots show the chips as a key. Defaults to false.
    */
   showGroups?: boolean;
+  /**
+   * The order of the group chips, and of the palette colors groups take. Unset: order of first
+   * appearance.
+   */
+  groupOrder?: GroupOrder;
   /**
    * In interactive mode, a quiet settings button in the top right corner opens a panel where
    * the viewer can set the text size, from 50 to 200 percent: typed, or in 10 percent steps.

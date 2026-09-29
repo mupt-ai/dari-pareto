@@ -1,29 +1,71 @@
 import type { KeyboardEvent } from "react";
 
 import { CHARACTER_WIDTH } from "./labels.js";
-import type { ParetoPoint } from "./types.js";
+import { orderGroups } from "./order.js";
+import type { GroupOrder, ParetoPoint } from "./types.js";
 
-export type Group = { name: string; color: string };
+export type Group = {
+  name: string;
+  color: string;
+  /** Its subgroups, in order of first appearance, each in its first point's color. */
+  subgroups: { name: string; color: string }[];
+};
 
-type Chip = Group & { x: number; y: number; width: number };
+/** What a chip stands for, as one string: a group, or a subgroup within one. */
+export function chipKey(group: string, subgroup?: string): string {
+  return JSON.stringify(subgroup === undefined ? [group] : [group, subgroup]);
+}
 
-/** The points' groups in order of first appearance, each in its first point's color. */
+export function parseChipKey(key: string): { group: string; subgroup?: string } {
+  const [group = "", subgroup] = JSON.parse(key) as string[];
+  return subgroup === undefined ? { group } : { group, subgroup };
+}
+
+type Chip = {
+  key: string;
+  group: string;
+  name: string;
+  color: string;
+  /** 0 for a group, 1 for a subgroup listed under its expanded group. */
+  depth: 0 | 1;
+  expandable: boolean;
+  expanded: boolean;
+  x: number;
+  y: number;
+  /** The chip's dot and name; a chevron, if any, sits after it. */
+  width: number;
+};
+
+const fallback = "var(--pareto-frontier, #8ee6bd)";
+
+/** The points' groups in display order (see `orderGroups`), each in its first point's color. */
 export function groupsOf(
   points: readonly ParetoPoint[],
   colorOf: ReadonlyMap<string, string | undefined> = new Map(),
+  order?: GroupOrder,
 ): Group[] {
-  const groups = new Map<string, string>();
-  for (const point of points) {
-    if (point.group && !groups.has(point.group)) {
-      groups.set(point.group, colorOf.get(point.id) ?? point.color ?? "var(--pareto-frontier, #8ee6bd)");
+  const colorFor = (point: ParetoPoint) => colorOf.get(point.id) ?? point.color ?? fallback;
+  return orderGroups(points, order).map((name) => {
+    const members = points.filter((point) => point.group === name);
+    const subgroups = new Map<string, string>();
+    for (const point of members) {
+      if (point.subgroup && !subgroups.has(point.subgroup)) subgroups.set(point.subgroup, colorFor(point));
     }
-  }
-  return [...groups].map(([name, color]) => ({ name, color }));
+    return {
+      name,
+      color: members[0] ? colorFor(members[0]) : fallback,
+      subgroups: [...subgroups].map(([subgroup, color]) => ({ name: subgroup, color })),
+    };
+  });
 }
 
-/** Chips in rows from `left`, wrapping within `maxWidth`; `height` is the rows' total height. */
+/**
+ * Chips in rows from `left`, wrapping within `maxWidth`: each group, followed by its subgroups
+ * when it is expanded. `height` is the rows' total height.
+ */
 export function layoutGroups(
   groups: readonly Group[],
+  expanded: ReadonlySet<string>,
   { left, top, maxWidth, fontSize }: { left: number; top: number; maxWidth: number; fontSize: number },
 ): { chips: Chip[]; height: number } {
   const rowHeight = fontSize * 2;
@@ -31,14 +73,32 @@ export function layoutGroups(
   const chips: Chip[] = [];
   let x = left;
   let row = 0;
-  for (const group of groups) {
-    const width = fontSize * 1.3 + group.name.length * fontSize * CHARACTER_WIDTH;
-    if (x > left && x + width > left + maxWidth) {
+  const place = (chip: Omit<Chip, "x" | "y" | "width">) => {
+    const width = fontSize * 1.3 + chip.name.length * fontSize * CHARACTER_WIDTH;
+    const room = width + (chip.expandable ? fontSize * 1.3 : 0);
+    if (x > left && x + room > left + maxWidth) {
       x = left;
       row++;
     }
-    chips.push({ ...group, x, y: top + row * rowHeight + rowHeight / 2, width });
-    x += width + spacing;
+    chips.push({ ...chip, x, y: top + row * rowHeight + rowHeight / 2, width });
+    x += room + spacing;
+  };
+  for (const group of groups) {
+    const expandable = group.subgroups.length > 0;
+    const open = expandable && expanded.has(group.name);
+    place({ key: chipKey(group.name), group: group.name, name: group.name, color: group.color, depth: 0, expandable, expanded: open });
+    if (!open) continue;
+    for (const subgroup of group.subgroups) {
+      place({
+        key: chipKey(group.name, subgroup.name),
+        group: group.name,
+        name: subgroup.name,
+        color: subgroup.color,
+        depth: 1,
+        expandable: false,
+        expanded: false,
+      });
+    }
   }
   return { chips, height: groups.length > 0 ? (row + 1) * rowHeight : 0 };
 }
@@ -46,19 +106,22 @@ export function layoutGroups(
 type GroupLegendProps = {
   chips: readonly Chip[];
   fontSize: number;
-  /** The group shown, if any: every other chip steps back. */
+  /** The chip shown, if any: the rest step back, except its group or its subgroups. */
   highlighted: string | null;
-  /** The group held by a click or tap, if any. */
+  /** The chip held by a click or tap, if any. */
   pinned: string | null;
   interactive: boolean;
-  onHover: (group: string | null) => void;
-  onPin: (group: string | null) => void;
+  onHover: (key: string | null) => void;
+  onPin: (key: string | null) => void;
+  /** Lists or hides a group's subgroups. */
+  onToggle: (group: string) => void;
 };
 
 /**
  * A row of chips, one per group, above the plot: a dot in the group's color and its name.
  * Hovering or focusing a chip highlights its group; a click or tap holds the highlight until
- * the chip is pressed again, which is how a touch screen uses it.
+ * the chip is pressed again, which is how a touch screen uses it. A group with subgroups has a
+ * chevron after its name that lists them as chips of their own.
  */
 export function GroupLegend({
   chips,
@@ -68,48 +131,91 @@ export function GroupLegend({
   interactive,
   onHover,
   onPin,
+  onToggle,
 }: GroupLegendProps) {
-  const toggle = (name: string) => onPin(pinned === name ? null : name);
-  const handleKeyDown = (event: KeyboardEvent<SVGGElement>, name: string) => {
+  const shown = highlighted === null ? null : parseChipKey(highlighted);
+  // The highlighted chip stays bright, and so do its group's chip and, for a group, its subgroups.
+  const bright = (chip: Chip) =>
+    shown === null ||
+    chip.key === highlighted ||
+    (chip.group === shown.group && (shown.subgroup === undefined || chip.depth === 0));
+  const pressed = (event: KeyboardEvent<SVGGElement>, act: () => void) => {
     if (event.key !== "Enter" && event.key !== " ") return;
     event.preventDefault();
-    toggle(name);
+    act();
   };
+  const toggle = (key: string) => onPin(pinned === key ? null : key);
   return (
     <g aria-label={interactive ? "Groups" : undefined} className="pareto-groups" fontSize={fontSize}>
-      {chips.map((chip) => (
-        <g
-          aria-label={interactive ? `Highlight ${chip.name}` : undefined}
-          aria-pressed={interactive ? pinned === chip.name : undefined}
-          className={`pareto-group${highlighted && highlighted !== chip.name ? " muted" : ""}${pinned === chip.name ? " pinned" : ""}`}
-          key={chip.name}
-          onBlur={interactive ? () => onHover(null) : undefined}
-          onClick={interactive ? () => toggle(chip.name) : undefined}
-          onFocus={interactive ? () => onHover(chip.name) : undefined}
-          onKeyDown={interactive ? (event) => handleKeyDown(event, chip.name) : undefined}
-          onMouseEnter={interactive ? () => onHover(chip.name) : undefined}
-          onMouseLeave={interactive ? () => onHover(null) : undefined}
-          role={interactive ? "button" : undefined}
-          tabIndex={interactive ? 0 : undefined}
-        >
-          <rect
-            fill="transparent"
-            height={fontSize * 2}
-            width={chip.width + fontSize * 0.8}
-            x={chip.x - fontSize * 0.4}
-            y={chip.y - fontSize}
-          />
-          <circle cx={chip.x + fontSize * 0.35} cy={chip.y} fill={chip.color} r={fontSize * 0.35} />
-          <text
-            dominantBaseline="middle"
-            fill="var(--pareto-muted, #91a39b)"
-            x={chip.x + fontSize * 1.3}
-            y={chip.y}
-          >
-            {chip.name}
-          </text>
-        </g>
-      ))}
+      {chips.map((chip) => {
+        const chevronX = chip.x + chip.width + fontSize * 0.55;
+        const size = fontSize * 0.32;
+        return (
+          <g key={chip.key}>
+            <g
+              aria-label={interactive ? `Highlight ${chip.name}` : undefined}
+              aria-pressed={interactive ? pinned === chip.key : undefined}
+              className={`pareto-group${bright(chip) ? "" : " muted"}${pinned === chip.key ? " pinned" : ""}${chip.depth ? " subgroup" : ""}`}
+              onBlur={interactive ? () => onHover(null) : undefined}
+              onClick={interactive ? () => toggle(chip.key) : undefined}
+              onFocus={interactive ? () => onHover(chip.key) : undefined}
+              onKeyDown={interactive ? (event) => pressed(event, () => toggle(chip.key)) : undefined}
+              onMouseEnter={interactive ? () => onHover(chip.key) : undefined}
+              onMouseLeave={interactive ? () => onHover(null) : undefined}
+              role={interactive ? "button" : undefined}
+              tabIndex={interactive ? 0 : undefined}
+            >
+              <rect
+                fill="transparent"
+                height={fontSize * 2}
+                width={chip.width + fontSize * 0.8}
+                x={chip.x - fontSize * 0.4}
+                y={chip.y - fontSize}
+              />
+              <circle cx={chip.x + fontSize * 0.35} cy={chip.y} fill={chip.color} r={fontSize * 0.35} />
+              <text
+                dominantBaseline="middle"
+                fill="var(--pareto-muted, #91a39b)"
+                x={chip.x + fontSize * 1.3}
+                y={chip.y}
+              >
+                {chip.name}
+              </text>
+            </g>
+            {chip.expandable && interactive ? (
+              <g
+                aria-expanded={chip.expanded}
+                aria-label={`${chip.expanded ? "Collapse" : "Expand"} ${chip.name}`}
+                className="pareto-group-toggle"
+                onClick={() => onToggle(chip.group)}
+                onKeyDown={(event) => pressed(event, () => onToggle(chip.group))}
+                role="button"
+                tabIndex={0}
+              >
+                <rect
+                  fill="transparent"
+                  height={fontSize * 2}
+                  width={fontSize * 1.2}
+                  x={chevronX - fontSize * 0.6}
+                  y={chip.y - fontSize}
+                />
+                <path
+                  d={
+                    chip.expanded
+                      ? `M${chevronX - size} ${chip.y - size / 2} L${chevronX} ${chip.y + size / 2} L${chevronX + size} ${chip.y - size / 2}`
+                      : `M${chevronX - size / 2} ${chip.y - size} L${chevronX + size / 2} ${chip.y} L${chevronX - size / 2} ${chip.y + size}`
+                  }
+                  fill="none"
+                  stroke="var(--pareto-muted, #91a39b)"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={Math.max(1, fontSize * 0.12)}
+                />
+              </g>
+            ) : null}
+          </g>
+        );
+      })}
     </g>
   );
 }

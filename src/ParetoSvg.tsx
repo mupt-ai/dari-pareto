@@ -3,7 +3,7 @@ import type { CSSProperties, KeyboardEvent, MouseEvent as ReactMouseEvent } from
 import { axisScale } from "./axis.js";
 import { pointColors } from "./colors.js";
 import { paretoFrontier, validatePoints } from "./frontier.js";
-import { GroupLegend, groupsOf, layoutGroups } from "./Groups.js";
+import { GroupLegend, groupsOf, layoutGroups, parseChipKey } from "./Groups.js";
 import { CHARACTER_WIDTH, placeLabels } from "./labels.js";
 import { nearestWithin } from "./pointer.js";
 import { Settings } from "./Settings.js";
@@ -73,6 +73,8 @@ const groupStyles = `
   .pareto-group.muted text, .pareto-group.muted circle { opacity: .4; }
   .pareto-group.pinned text { fill: var(--pareto-foreground, #eef4ed); }
   .pareto-group:focus-visible rect { stroke: var(--pareto-muted, #91a39b); }
+  .pareto-group-toggle { cursor: pointer; outline: none; }
+  .pareto-group-toggle:focus-visible rect { stroke: var(--pareto-muted, #91a39b); }
 `;
 
 /** Only with the settings button: quiet until hovered, focused or open. */
@@ -114,11 +116,14 @@ type ParetoSvgProps = ParetoPlotProps & {
   hoveredId?: string | null;
   onFocusedIdChange?: (id: string | null) => void;
   onHoveredIdChange?: (id: string | null) => void;
-  /** The group chip under the pointer or focus, and the one held by a click or tap. */
+  /** The chip under the pointer or focus, and the one held by a click or tap (see `chipKey`). */
   hoveredGroup?: string | null;
   pinnedGroup?: string | null;
-  onHoveredGroupChange?: (group: string | null) => void;
-  onPinnedGroupChange?: (group: string | null) => void;
+  onHoveredGroupChange?: (key: string | null) => void;
+  onPinnedGroupChange?: (key: string | null) => void;
+  /** Groups whose subgroups are listed as chips of their own. */
+  expandedGroups?: readonly string[];
+  onExpandedGroupsChange?: (groups: string[]) => void;
   /** Whether the settings panel is open, and the viewer's text size in percent. */
   settingsOpen?: boolean;
   textSize?: number;
@@ -146,6 +151,7 @@ export function ParetoSvg({
   hoverRadius,
   palette,
   showGroups = false,
+  groupOrder,
   showSettings = false,
   className,
   style,
@@ -157,6 +163,8 @@ export function ParetoSvg({
   pinnedGroup = null,
   onHoveredGroupChange,
   onPinnedGroupChange,
+  expandedGroups = [],
+  onExpandedGroupsChange,
   settingsOpen = false,
   textSize = 100,
   onSettingsOpenChange,
@@ -214,10 +222,12 @@ export function ParetoSvg({
   }
   const plotWidth = Math.max(1, width - left - MARGIN.right);
   // Group chips sit in rows above the plot, below the title and legend when those are shown.
-  const colorOf = pointColors(points, palette);
-  const groups = showGroups ? groupsOf(points, colorOf) : [];
+  // Only an interactive plot can expand a group; a static one shows the groups as they are.
+  const expanded = new Set(interactive && showGroups ? expandedGroups : []);
+  const colorOf = pointColors(points, palette, { order: groupOrder, expanded });
+  const groups = showGroups ? groupsOf(points, colorOf, groupOrder) : [];
   const chipsTop = showTitle || showLegend ? 34 : 6;
-  const legend = layoutGroups(groups, { left, top: chipsTop, maxWidth: plotWidth, fontSize: size(9) });
+  const legend = layoutGroups(groups, expanded, { left, top: chipsTop, maxWidth: plotWidth, fontSize: size(9) });
   const baseTop = showTitle || showLegend ? MARGIN.top : BARE_TOP;
   const top = groups.length > 0 ? Math.max(baseTop, chipsTop + legend.height + 10) : baseTop;
   const plotHeight = Math.max(1, height - top - bottom);
@@ -225,7 +235,22 @@ export function ParetoSvg({
   const scaleY = (value: number) => top + plotHeight - yAt(value) * plotHeight;
   const colored = points.some((point) => colorOf.get(point.id));
   const highlighted = groups.length > 0 ? (hoveredGroup ?? pinnedGroup) : null;
-  const faded = (point: ParetoPoint) => highlighted !== null && point.group !== highlighted;
+  const shown = highlighted === null ? null : parseChipKey(highlighted);
+  const faded = (point: ParetoPoint) =>
+    shown !== null &&
+    (point.group !== shown.group || (shown.subgroup !== undefined && point.subgroup !== shown.subgroup));
+  // Collapsing a group lets go of any of its subgroups that was highlighted.
+  const toggleGroup = (group: string) => {
+    const open = expanded.has(group);
+    onExpandedGroupsChange?.(open ? [...expanded].filter((name) => name !== group) : [...expanded, group]);
+    if (!open) return;
+    for (const [key, clear] of [
+      [pinnedGroup, onPinnedGroupChange],
+      [hoveredGroup, onHoveredGroupChange],
+    ] as const) {
+      if (key !== null && parseChipKey(key).group === group && parseChipKey(key).subgroup !== undefined) clear?.(null);
+    }
+  };
   const fullDescription =
     description ??
     `${points.length} points. ${frontier.length} ${frontier.length === 1 ? "point is" : "points are"} Pareto-efficient.`;
@@ -531,6 +556,7 @@ export function ParetoSvg({
           interactive={interactive}
           onHover={(group) => onHoveredGroupChange?.(group)}
           onPin={(group) => onPinnedGroupChange?.(group)}
+          onToggle={toggleGroup}
           pinned={pinnedGroup}
         />
       ) : null}
