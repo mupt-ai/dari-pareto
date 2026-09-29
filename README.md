@@ -120,6 +120,18 @@ as before.
   rounds an inferred domain out to whole steps. With `includeZero`, an inferred
   domain of all-positive data then starts exactly at zero. An explicit `domain`
   is kept as given, with round ticks inside it.
+- **Log scale.** `scale: "log"` on an axis suits values spanning orders of
+  magnitude, such as prices: equal distances are equal ratios. Ticks fall on
+  round values within each decade (1, 10, 100; or 1, 2, 5, 10, …), or on a round
+  linear step when the data spans only part of a decade, and `nice` rounds the
+  domain out to match. Values at or below zero, which a log scale cannot place,
+  sit on a zero tick at the axis start in a short band of their own; the tooltip
+  still shows their real value. `includeZero` does not apply.
+- **Hover radius.** `hoverRadius: 36` makes the pointer inspect the nearest point
+  within that many pixels instead of only the one directly under it. On touch
+  screens a tap does the same, a tap away from every point puts the card away,
+  and a touch that turns into a scroll opens nothing. Clicks select the nearest
+  point in reach.
 - **Label placement.** `labelPlacement: "auto"` places each label from
   `showPointLabels` above, beside, below or diagonally off its point, wherever it
   covers no point and no other label, preferring spots off the frontier line.
@@ -127,7 +139,8 @@ as before.
   appears on hover. The default, `"above"`, centers every label above its point.
 - **Tooltip.** `showTooltip: true` shows a card with the hovered or focused
   point's label, both axis values and its `description`, in place of its label,
-  and dims the other labels. Interactive mode only.
+  and dims the other labels. It sits beside the point, or above or below it on a
+  plot too narrow for that. Interactive mode only.
 - **Title and text size.** `showTitle: false` hides the title; with
   `showLegend: false` as well, the plot drops the space kept above it for them.
   `textScale` multiplies every text size and fits the left margin to the y-axis

@@ -172,3 +172,45 @@ describe("ParetoPlot options", () => {
     expect(labelsStart - (titleX(fitted) + 11 * 1.25 * 0.2)).toBeGreaterThanOrEqual(10);
   });
 });
+
+describe("ParetoPlot hover radius", () => {
+  test("inspects the nearest point within the radius, and nothing beyond it", () => {
+    let hovered = null as string | null;
+    const svg = ParetoSvg({
+      ...props,
+      width: 400,
+      height: 300,
+      hoverRadius: 30,
+      onHoveredIdChange: (id) => {
+        hovered = id;
+      },
+    }) as ReactElement<Record<string, unknown>>;
+    const box = { left: 0, top: 0, width: 400 };
+    const move = (x: number, y: number) =>
+      (svg.props.onPointerMove as (event: unknown) => void)({
+        pointerType: "mouse",
+        clientX: x,
+        clientY: y,
+        currentTarget: { getBoundingClientRect: () => box },
+      });
+    const circles = elementsWithRole(svg, "button").map((point) => {
+      const circle = Children.toArray(point.props.children as ReactNode)[0] as ReactElement<{
+        cx: number;
+        cy: number;
+      }>;
+      return { id: String(point.key), x: circle.props.cx, y: circle.props.cy };
+    });
+    const small = circles.find((point) => point.id === "small");
+    if (!small) throw new Error("missing point");
+    move(small.x + 12, small.y - 9);
+    expect(hovered).toBe("small");
+    move(small.x + 200, small.y + 200);
+    expect(hovered).toBeNull();
+  });
+
+  test("leaves the plot as it was when unset", () => {
+    const svg = ParetoSvg(props) as ReactElement<Record<string, unknown>>;
+    expect(svg.props.onPointerMove).toBeUndefined();
+    expect(elementsWithRole(svg, "button")[0]?.props.onMouseEnter).toBeDefined();
+  });
+});

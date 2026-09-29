@@ -29,6 +29,13 @@ export type AxisOptions = {
    * the domain evenly.
    */
   nice?: boolean;
+  /**
+   * "linear" (the default) or "log". A log axis suits values spanning orders of magnitude,
+   * such as prices: equal distances are equal ratios. Its ticks fall on round values within
+   * each decade, and values at or below zero sit on a zero tick at the axis start. `includeZero`
+   * does not apply to it.
+   */
+  scale?: "linear" | "log";
 };
 
 export type ParetoPlotMode = "static" | "interactive";
@@ -48,8 +55,10 @@ export type ParetoPlotProps = {
   showPointLabels?: "none" | "frontier" | "all";
   /**
    * Where resting point labels go. "above" (the default) centers each above its point.
-   * "auto" tries above, right, left, then below, taking the first spot that covers no point
-   * and no other label; a label with no room is left out and still appears on hover.
+   * "auto" places frontier labels first, each in the first of eight spots around its point
+   * (above, beside, below, then the diagonals) that covers no point and no other label,
+   * preferring spots off the frontier line; a label with no room is left out and still
+   * appears on hover.
    */
   labelPlacement?: "above" | "auto";
   /** Draws the title above the plot. Defaults to true. */
@@ -59,6 +68,12 @@ export type ParetoPlotProps = {
    * values and its description, in place of its label. Defaults to false.
    */
   showTooltip?: boolean;
+  /**
+   * In interactive mode, the pointer inspects the nearest point within this many pixels
+   * instead of only the point directly under it; a tap does the same, and a tap away from
+   * every point puts the card away. Unset: only the point under the pointer.
+   */
+  hoverRadius?: number;
   /**
    * Multiplies every text size, for plots drawn larger or smaller than their logical size.
    * Setting it also fits the left margin to the y-axis tick labels, keeping a gap between

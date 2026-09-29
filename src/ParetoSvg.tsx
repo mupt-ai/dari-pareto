@@ -1,8 +1,9 @@
-import type { CSSProperties, KeyboardEvent } from "react";
+import type { CSSProperties, KeyboardEvent, MouseEvent as ReactMouseEvent } from "react";
 
 import { axisScale } from "./axis.js";
 import { paretoFrontier, validatePoints } from "./frontier.js";
 import { CHARACTER_WIDTH, placeLabels } from "./labels.js";
+import { nearestWithin } from "./pointer.js";
 import { Tooltip } from "./Tooltip.js";
 import type { AxisOptions, ParetoPlotProps, ParetoPoint } from "./types.js";
 
@@ -100,6 +101,7 @@ export function ParetoSvg({
   showTitle = true,
   showTooltip = false,
   textScale,
+  hoverRadius,
   className,
   style,
   focusedId = null,
@@ -122,11 +124,11 @@ export function ParetoSvg({
     yObjective: yAxis.objective,
   });
   const frontierIds = new Set(frontier.map((point) => point.id));
-  const { domain: xDomain, ticks: xTicks } = axisScale(
+  const { ticks: xTicks, position: xAt } = axisScale(
     points.map((point) => point.x),
     xAxis,
   );
-  const { domain: yDomain, ticks: yTicks } = axisScale(
+  const { ticks: yTicks, position: yAt } = axisScale(
     points.map((point) => point.y),
     yAxis,
   );
@@ -147,10 +149,8 @@ export function ParetoSvg({
   const top = showTitle || showLegend ? MARGIN.top : BARE_TOP;
   const plotWidth = Math.max(1, width - left - MARGIN.right);
   const plotHeight = Math.max(1, height - top - MARGIN.bottom);
-  const scaleX = (value: number) =>
-    left + ((value - xDomain[0]) / (xDomain[1] - xDomain[0])) * plotWidth;
-  const scaleY = (value: number) =>
-    top + plotHeight - ((value - yDomain[0]) / (yDomain[1] - yDomain[0])) * plotHeight;
+  const scaleX = (value: number) => left + xAt(value) * plotWidth;
+  const scaleY = (value: number) => top + plotHeight - yAt(value) * plotHeight;
   const interactive = mode === "interactive";
   const colored = points.some((point) => point.color);
   const fullDescription =
@@ -188,6 +188,17 @@ export function ParetoSvg({
           ).map((label) => [label.id, label]),
         )
       : null;
+  // With a hover radius, the plot as a whole finds the nearest point to the pointer.
+  const nearHover = interactive && hoverRadius !== undefined && hoverRadius > 0;
+  const onScreen = points.map((point) => ({ point, x: scaleX(point.x), y: scaleY(point.y) }));
+  const pointerAt = (event: ReactMouseEvent<SVGSVGElement>) => {
+    const box = event.currentTarget.getBoundingClientRect();
+    // The SVG scales to its box; the points are placed in its own units.
+    const units = box.width > 0 ? width / box.width : 1;
+    const x = (event.clientX - box.left) * units;
+    const y = (event.clientY - box.top) * units;
+    return nearestWithin(onScreen, x, y, hoverRadius ?? 0)?.point;
+  };
   const tooltipPoint =
     showTooltip && interactive ? points.find((point) => point.id === activeId) : undefined;
 
@@ -197,7 +208,39 @@ export function ParetoSvg({
       className={className}
       height={height}
       role={interactive ? "group" : "img"}
-      style={{ ...baseStyle, ...style }}
+      style={{ ...baseStyle, ...(nearHover && hoveredId ? { cursor: "pointer" } : {}), ...style }}
+      // A mouse inspects the nearest point as it moves; a tap inspects the nearest point, or
+      // puts the card away when none is near. A touch that becomes a scroll ends in
+      // pointercancel, not pointerup, so scrolling across the plot opens nothing.
+      onClick={
+        nearHover
+          ? (event) => {
+              const point = pointerAt(event);
+              if (point) activate(point);
+            }
+          : undefined
+      }
+      onPointerLeave={
+        nearHover
+          ? (event) => {
+              if (event.pointerType === "mouse") onHoveredIdChange?.(null);
+            }
+          : undefined
+      }
+      onPointerMove={
+        nearHover
+          ? (event) => {
+              if (event.pointerType === "mouse") onHoveredIdChange?.(pointerAt(event)?.id ?? null);
+            }
+          : undefined
+      }
+      onPointerUp={
+        nearHover
+          ? (event) => {
+              if (event.pointerType !== "mouse") onHoveredIdChange?.(pointerAt(event)?.id ?? null);
+            }
+          : undefined
+      }
       viewBox={`0 0 ${width} ${height}`}
       width={width}
       xmlns="http://www.w3.org/2000/svg"
@@ -313,11 +356,11 @@ export function ParetoSvg({
               className={`pareto-point${selected ? " selected" : ""}${efficient ? " efficient" : ""}${point.color ? " colored" : ""}`}
               key={point.id}
               onBlur={interactive ? () => onFocusedIdChange?.(null) : undefined}
-              onClick={interactive ? () => activate(point) : undefined}
+              onClick={interactive && !nearHover ? () => activate(point) : undefined}
               onFocus={interactive ? () => onFocusedIdChange?.(point.id) : undefined}
               onKeyDown={interactive ? (event) => handleKeyDown(event, point) : undefined}
-              onMouseEnter={interactive ? () => onHoveredIdChange?.(point.id) : undefined}
-              onMouseLeave={interactive ? () => onHoveredIdChange?.(null) : undefined}
+              onMouseEnter={interactive && !nearHover ? () => onHoveredIdChange?.(point.id) : undefined}
+              onMouseLeave={interactive && !nearHover ? () => onHoveredIdChange?.(null) : undefined}
               role={interactive ? "button" : undefined}
               style={point.color ? ({ "--pareto-point-color": point.color } as CSSProperties) : undefined}
               tabIndex={interactive ? 0 : undefined}
