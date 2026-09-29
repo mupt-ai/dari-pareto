@@ -99,7 +99,7 @@ function niceScale(
  * A log axis. Ticks fall on round values within each decade (1, 10, 100; or 1, 2, 5, 10, …;
  * or every whole multiple), whichever gives about `requested` of them, or on a round linear
  * step when the data spans too little of a decade for any. `nice` rounds an inferred domain out
- * to a whole multiple of a power of ten. Values at or below zero, which a log scale cannot
+ * to a round value (1, 1.2, 1.5, 2, 2.5, 3, … times a power of ten). Values at or below zero, which a log scale cannot
  * place, sit on a zero tick at the axis start, in a short band of their own.
  */
 function logScale(values: readonly number[], axis: AxisOptions, requested: number): AxisScale {
@@ -113,8 +113,8 @@ function logScale(values: readonly number[], axis: AxisOptions, requested: numbe
     // Round out on the same terms the ticks use: a linear step inside a fraction of a decade,
     // otherwise whole multiples of a power of ten.
     const step = logTicks(low, high, requested).step;
-    low = step ? round(Math.floor(round(low / step)) * step) : roundLog(low, Math.floor);
-    high = step ? round(Math.ceil(round(high / step)) * step) : roundLog(high, Math.ceil);
+    low = step ? round(Math.floor(round(low / step)) * step) : roundLog(low, -1);
+    high = step ? round(Math.ceil(round(high / step)) * step) : roundLog(high, 1);
   }
   const { ticks } = logTicks(low, high, requested);
   const band = zeros ? ZERO_BAND : 0;
@@ -137,10 +137,18 @@ function paddedLogDomain(values: readonly number[]): readonly [number, number] {
   return [minimum / factor, maximum * factor];
 }
 
-/** `value` rounded, down or up, to a whole multiple (1 to 9) of its power of ten. */
-function roundLog(value: number, direction: (value: number) => number): number {
+/** Where a log domain may end within a decade: fine near 1, where a decade is widest. */
+const LOG_EDGES = [1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6, 7, 8, 9, 10];
+
+/** `value` rounded down or up (`direction` -1 or 1) to one of `LOG_EDGES` in its decade. */
+function roundLog(value: number, direction: 1 | -1): number {
   const power = 10 ** Math.floor(Math.log10(value));
-  return round(direction(round(value / power)) * power);
+  const mantissa = round(value / power);
+  const edge =
+    direction < 0
+      ? [...LOG_EDGES].reverse().find((candidate) => candidate <= mantissa)
+      : LOG_EDGES.find((candidate) => candidate >= mantissa);
+  return round((edge ?? 1) * power);
 }
 
 /** A log axis's ticks, and the linear step they use when the domain is too narrow for decades. */

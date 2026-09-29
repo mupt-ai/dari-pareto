@@ -73,6 +73,10 @@ describe("log axis", () => {
     expect(position(2) - position(1)).toBeCloseTo(position(1) - position(0.5), 10);
   });
 
+  test("ends the domain close to the data at the bottom of a decade", () => {
+    expect(shape([0.21, 4.68], log).domain).toEqual([0.15, 6]);
+  });
+
   test("ticks only on powers of ten across many decades", () => {
     expect(shape([0.01, 100], log).ticks).toEqual([0.01, 0.1, 1, 10, 100]);
   });
