@@ -13,6 +13,11 @@ export type ParetoPoint = {
    * Pareto-efficient, a ring when dominated.
    */
   color?: string;
+  /**
+   * The point's group, such as the vendor that made a model. With `showGroups`, each group
+   * gets a chip above the plot, colored like its first point.
+   */
+  group?: string;
 };
 
 export type AxisOptions = {
@@ -74,6 +79,17 @@ export type ParetoPlotProps = {
    * every point puts the card away. Unset: only the point under the pointer.
    */
   hoverRadius?: number;
+  /**
+   * Draws a row of chips above the plot, one per point `group`. Hovering or focusing a chip
+   * fades every point outside its group; a click or tap holds that until the chip is pressed
+   * again. Static plots show the chips as a key. Defaults to false.
+   */
+  showGroups?: boolean;
+  /**
+   * In interactive mode, a quiet settings button in the top right corner opens a panel where
+   * the viewer can make the text smaller or larger. Defaults to false.
+   */
+  showSettings?: boolean;
   /**
    * Multiplies every text size, for plots drawn larger or smaller than their logical size.
    * Setting it also fits the left margin to the y-axis tick labels, keeping a gap between

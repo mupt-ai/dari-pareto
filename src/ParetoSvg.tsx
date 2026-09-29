@@ -2,8 +2,10 @@ import type { CSSProperties, KeyboardEvent, MouseEvent as ReactMouseEvent } from
 
 import { axisScale } from "./axis.js";
 import { paretoFrontier, validatePoints } from "./frontier.js";
+import { GroupLegend, groupsOf, layoutGroups } from "./Groups.js";
 import { CHARACTER_WIDTH, placeLabels } from "./labels.js";
 import { nearestWithin } from "./pointer.js";
+import { Settings, textFactor } from "./Settings.js";
 import { Tooltip } from "./Tooltip.js";
 import type { AxisOptions, ParetoPlotProps, ParetoPoint } from "./types.js";
 
@@ -12,6 +14,8 @@ const DEFAULT_HEIGHT = 290;
 const MARGIN = { top: 45, right: 36, bottom: 56, left: 54 } as const;
 /** The top margin when neither the title nor the legend is drawn. */
 const BARE_TOP = 16;
+/** How far the legend moves left to clear the settings button. */
+const SETTINGS_ROOM = 28;
 /** Where the rotated y-axis title sits: its baseline's x, unless the margin is fitted. */
 const Y_TITLE_X = 16;
 /** Space kept between the y-axis title, the tick labels and the plot in a fitted margin. */
@@ -59,6 +63,26 @@ const tooltipStyles = `
   .pareto-point-label.visible.dimmed { opacity: .4; }
 `;
 
+/** Only with group chips: highlighting a group fades the rest. */
+const groupStyles = `
+  .pareto-point, .pareto-point-label { transition: opacity .15s; }
+  .pareto-point.faded, .pareto-point-label.visible.faded { opacity: .15; }
+  .pareto-group { cursor: pointer; outline: none; }
+  .pareto-group text, .pareto-group circle { transition: opacity .15s; }
+  .pareto-group.muted text, .pareto-group.muted circle { opacity: .4; }
+  .pareto-group.pinned text { fill: var(--pareto-foreground, #eef4ed); }
+  .pareto-group:focus-visible rect { stroke: var(--pareto-muted, #91a39b); }
+`;
+
+/** Only with the settings button: quiet until hovered, focused or open. */
+const settingsStyles = `
+  .pareto-settings-button, .pareto-settings-step { cursor: pointer; outline: none; }
+  .pareto-settings-button { opacity: .55; transition: opacity .15s; }
+  .pareto-settings-button:hover, .pareto-settings-button:focus-visible, .pareto-settings-button[aria-expanded="true"] { opacity: 1; }
+  .pareto-settings-step.disabled { cursor: default; opacity: .35; }
+  .pareto-settings-button:focus-visible rect, .pareto-settings-step:focus-visible rect { stroke: var(--pareto-muted, #91a39b); }
+`;
+
 function defaultFormat(value: number): string {
   return new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(value);
 }
@@ -82,6 +106,16 @@ type ParetoSvgProps = ParetoPlotProps & {
   hoveredId?: string | null;
   onFocusedIdChange?: (id: string | null) => void;
   onHoveredIdChange?: (id: string | null) => void;
+  /** The group chip under the pointer or focus, and the one held by a click or tap. */
+  hoveredGroup?: string | null;
+  pinnedGroup?: string | null;
+  onHoveredGroupChange?: (group: string | null) => void;
+  onPinnedGroupChange?: (group: string | null) => void;
+  /** Whether the settings panel is open, and the viewer's text size step. */
+  settingsOpen?: boolean;
+  textStep?: number;
+  onSettingsOpenChange?: (open: boolean) => void;
+  onTextStepChange?: (step: number) => void;
 };
 
 export function ParetoSvg({
@@ -102,22 +136,39 @@ export function ParetoSvg({
   showTooltip = false,
   textScale,
   hoverRadius,
+  showGroups = false,
+  showSettings = false,
   className,
   style,
   focusedId = null,
   hoveredId = null,
   onFocusedIdChange,
   onHoveredIdChange,
+  hoveredGroup = null,
+  pinnedGroup = null,
+  onHoveredGroupChange,
+  onPinnedGroupChange,
+  settingsOpen = false,
+  textStep = 0,
+  onSettingsOpenChange,
+  onTextStepChange,
 }: ParetoSvgProps) {
   validatePoints(points);
   const activeId = hoveredId ?? focusedId;
+  const interactive = mode === "interactive";
+  const settings = interactive && showSettings;
   if (!Number.isFinite(width) || !Number.isFinite(height) || width < 320 || height < 240) {
     throw new Error("Pareto plot width and height must be finite and at least 320 × 240.");
   }
   if (textScale !== undefined && (!Number.isFinite(textScale) || textScale <= 0)) {
     throw new Error("Pareto plot text scale must be a positive number.");
   }
-  const size = (base: number) => base * (textScale ?? 1);
+  // The plot's own text scale, times the viewer's step from the settings panel.
+  const scale =
+    textScale !== undefined || (settings && textStep !== 0)
+      ? (textScale ?? 1) * (settings ? textFactor(textStep) : 1)
+      : undefined;
+  const size = (base: number) => base * (scale ?? 1);
 
   const frontier = paretoFrontier(points, {
     xObjective: xAxis.objective,
@@ -139,20 +190,26 @@ export function ParetoSvg({
   // label, a gap, then the plot. Unscaled plots keep the fixed layout.
   let left: number = MARGIN.left;
   let yTitleX = Y_TITLE_X;
-  if (textScale !== undefined) {
+  if (scale !== undefined) {
     const titleSize = size(11);
     const widestTick = Math.max(0, ...shownYTicks.map((tick) => formatY(tick).length)) * size(10) * CHARACTER_WIDTH;
     // Capitals rise about 0.8 em from the rotated baseline, toward the left edge.
     yTitleX = 4 + titleSize * 0.8;
     left = Math.max(MARGIN.left, Math.ceil(yTitleX + titleSize * 0.2 + Y_AXIS_GAP + widestTick + Y_AXIS_GAP));
   }
-  const top = showTitle || showLegend ? MARGIN.top : BARE_TOP;
   const plotWidth = Math.max(1, width - left - MARGIN.right);
+  // Group chips sit in rows above the plot, below the title and legend when those are shown.
+  const groups = showGroups ? groupsOf(points) : [];
+  const chipsTop = showTitle || showLegend ? 34 : 6;
+  const legend = layoutGroups(groups, { left, top: chipsTop, maxWidth: plotWidth, fontSize: size(9) });
+  const baseTop = showTitle || showLegend ? MARGIN.top : BARE_TOP;
+  const top = groups.length > 0 ? Math.max(baseTop, chipsTop + legend.height + 10) : baseTop;
   const plotHeight = Math.max(1, height - top - MARGIN.bottom);
   const scaleX = (value: number) => left + xAt(value) * plotWidth;
   const scaleY = (value: number) => top + plotHeight - yAt(value) * plotHeight;
-  const interactive = mode === "interactive";
   const colored = points.some((point) => point.color);
+  const highlighted = groups.length > 0 ? (hoveredGroup ?? pinnedGroup) : null;
+  const faded = (point: ParetoPoint) => highlighted !== null && point.group !== highlighted;
   const fullDescription =
     description ??
     `${points.length} points. ${frontier.length} ${frontier.length === 1 ? "point is" : "points are"} Pareto-efficient.`;
@@ -199,6 +256,11 @@ export function ParetoSvg({
     const y = (event.clientY - box.top) * units;
     return nearestWithin(onScreen, x, y, hoverRadius ?? 0)?.point;
   };
+  // The chips and the settings control handle their own pointer; the plot leaves them be.
+  const within = (event: ReactMouseEvent<SVGSVGElement>, selector: string) =>
+    Boolean((event.target as { closest?: (selector: string) => unknown } | null)?.closest?.(selector));
+  const onControls = (event: ReactMouseEvent<SVGSVGElement>) =>
+    within(event, ".pareto-groups, .pareto-settings");
   const tooltipPoint =
     showTooltip && interactive ? points.find((point) => point.id === activeId) : undefined;
 
@@ -215,7 +277,7 @@ export function ParetoSvg({
       onClick={
         nearHover
           ? (event) => {
-              const point = pointerAt(event);
+              const point = onControls(event) ? undefined : pointerAt(event);
               if (point) activate(point);
             }
           : undefined
@@ -230,14 +292,24 @@ export function ParetoSvg({
       onPointerMove={
         nearHover
           ? (event) => {
-              if (event.pointerType === "mouse") onHoveredIdChange?.(pointerAt(event)?.id ?? null);
+              if (event.pointerType !== "mouse") return;
+              onHoveredIdChange?.(onControls(event) ? null : (pointerAt(event)?.id ?? null));
             }
           : undefined
       }
       onPointerUp={
         nearHover
           ? (event) => {
-              if (event.pointerType !== "mouse") onHoveredIdChange?.(pointerAt(event)?.id ?? null);
+              if (event.pointerType === "mouse" || onControls(event)) return;
+              onHoveredIdChange?.(pointerAt(event)?.id ?? null);
+            }
+          : undefined
+      }
+      // An open settings panel closes on any press outside it.
+      onPointerDown={
+        settings && settingsOpen
+          ? (event) => {
+              if (!within(event, ".pareto-settings")) onSettingsOpenChange?.(false);
             }
           : undefined
       }
@@ -245,7 +317,13 @@ export function ParetoSvg({
       width={width}
       xmlns="http://www.w3.org/2000/svg"
     >
-      <style>{chartStyles + (colored ? colorStyles : "") + (showTooltip && interactive ? tooltipStyles : "")}</style>
+      <style>
+        {chartStyles +
+          (colored ? colorStyles : "") +
+          (showTooltip && interactive ? tooltipStyles : "") +
+          (groups.length > 0 ? groupStyles : "") +
+          (settings ? settingsStyles : "")}
+      </style>
       <title>{title}</title>
       <desc>{fullDescription}</desc>
 
@@ -263,7 +341,11 @@ export function ParetoSvg({
       ) : null}
 
       {showLegend && !colored ? (
-        <g aria-hidden="true" fontSize={size(9)} transform={`translate(${width - MARGIN.right - size(150)} 20)`}>
+        <g
+          aria-hidden="true"
+          fontSize={size(9)}
+          transform={`translate(${width - MARGIN.right - size(150) - (settings ? SETTINGS_ROOM : 0)} 20)`}
+        >
           <circle cx="0" cy="0" fill="var(--pareto-background, #09100f)" r="3" stroke="var(--pareto-frontier, #8ee6bd)" />
           <text fill="var(--pareto-muted, #91a39b)" x={size(9)} y={size(3)}>
             Selected
@@ -276,7 +358,11 @@ export function ParetoSvg({
       ) : null}
       {showLegend && colored ? (
         // With colored points, color names the point, so the legend explains fill and ring.
-        <g aria-hidden="true" fontSize={size(9)} transform={`translate(${width - MARGIN.right - size(170)} 20)`}>
+        <g
+          aria-hidden="true"
+          fontSize={size(9)}
+          transform={`translate(${width - MARGIN.right - size(170) - (settings ? SETTINGS_ROOM : 0)} 20)`}
+        >
           <circle cx="0" cy="0" fill="var(--pareto-foreground, #eef4ed)" r="3" />
           <text fill="var(--pareto-muted, #91a39b)" x={size(9)} y={size(3)}>
             Pareto-efficient
@@ -353,7 +439,7 @@ export function ParetoSvg({
           return (
             <g
               aria-label={interactive ? pointDescription(point, xAxis, yAxis, efficient) : undefined}
-              className={`pareto-point${selected ? " selected" : ""}${efficient ? " efficient" : ""}${point.color ? " colored" : ""}`}
+              className={`pareto-point${selected ? " selected" : ""}${efficient ? " efficient" : ""}${point.color ? " colored" : ""}${faded(point) ? " faded" : ""}`}
               key={point.id}
               onBlur={interactive ? () => onFocusedIdChange?.(null) : undefined}
               onClick={interactive && !nearHover ? () => activate(point) : undefined}
@@ -388,7 +474,7 @@ export function ParetoSvg({
           if (!resting && !selected) return null;
           return (
             <text
-              className={`pareto-point-label visible${tooltipPoint ? " dimmed" : ""}`}
+              className={`pareto-point-label visible${tooltipPoint ? " dimmed" : ""}${faded(point) ? " faded" : ""}`}
               fill="var(--pareto-foreground, #eef4ed)"
               fontSize={labelSize}
               key={point.id}
@@ -417,6 +503,30 @@ export function ParetoSvg({
           width={width}
           x={scaleX(tooltipPoint.x)}
           y={scaleY(tooltipPoint.y)}
+        />
+      ) : null}
+
+      {groups.length > 0 ? (
+        <GroupLegend
+          chips={legend.chips}
+          fontSize={size(9)}
+          highlighted={highlighted}
+          interactive={interactive}
+          onHover={(group) => onHoveredGroupChange?.(group)}
+          onPin={(group) => onPinnedGroupChange?.(group)}
+          pinned={pinnedGroup}
+        />
+      ) : null}
+
+      {settings ? (
+        <Settings
+          // The panel keeps the plot's own size, so it does not move as the viewer resizes text.
+          fontSize={10 * (textScale ?? 1)}
+          onOpenChange={(open) => onSettingsOpenChange?.(open)}
+          onStepChange={(step) => onTextStepChange?.(step)}
+          open={settingsOpen}
+          step={textStep}
+          width={width}
         />
       ) : null}
 

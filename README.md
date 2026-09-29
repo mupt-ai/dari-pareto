@@ -132,6 +132,14 @@ as before.
   screens a tap does the same, a tap away from every point puts the card away,
   and a touch that turns into a scroll opens nothing. Clicks select the nearest
   point in reach.
+- **Groups.** Give each point a `group` (such as the vendor that made a model)
+  and set `showGroups: true` for a row of chips above the plot, one per group,
+  colored like the group's first point. Hovering or focusing a chip fades every
+  point and label outside its group; a click or tap holds the highlight until
+  the chip is pressed again. Static plots show the chips as a key.
+- **Settings.** `showSettings: true` adds a quiet button in the top right corner
+  of an interactive plot. It opens a small panel where the viewer can make the
+  plot's text smaller or larger, in 15 percent steps.
 - **Label placement.** `labelPlacement: "auto"` places each label from
   `showPointLabels` above, beside, below or diagonally off its point, wherever it
   covers no point and no other label, preferring spots off the frontier line.

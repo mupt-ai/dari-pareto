@@ -100,6 +100,8 @@ describe("ParetoPlot options", () => {
     expect(markup).not.toContain("pareto-tooltip");
     expect(markup).not.toContain("dimmed");
     expect(markup).not.toContain("--pareto-point-color");
+    expect(markup).not.toContain("pareto-group");
+    expect(markup).not.toContain("pareto-settings");
     expect(markup).toContain('font-weight="700"');
     expect(markup).toContain("Selected");
   });
