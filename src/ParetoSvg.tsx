@@ -227,9 +227,18 @@ export function ParetoSvg({
   // Only an interactive plot can expand a group; a static one shows the groups as they are.
   const expanded = new Set(interactive && showGroups ? expandedGroups : []);
   const colorOf = pointColors(points, palette, { order: groupOrder, expanded });
-  const groups = showGroups ? groupsOf(points, colorOf, groupOrder) : [];
+  // Group chips keep their group's color while its subgroups are listed in theirs.
+  const groups = showGroups
+    ? groupsOf(points, colorOf, groupOrder, expanded.size > 0 ? pointColors(points, palette, { order: groupOrder }) : colorOf)
+    : [];
   const chipsTop = showTitle || showLegend ? 34 : 6;
-  const legend = layoutGroups(groups, expanded, { left, top: chipsTop, maxWidth: plotWidth, fontSize: size(9) });
+  const legend = layoutGroups(groups, expanded, {
+    left,
+    top: chipsTop,
+    maxWidth: plotWidth,
+    fontSize: size(9),
+    expandable: interactive,
+  });
   const baseTop = showTitle || showLegend ? MARGIN.top : BARE_TOP;
   const top = groups.length > 0 ? Math.max(baseTop, chipsTop + legend.height + 10) : baseTop;
   const plotHeight = Math.max(1, height - top - bottom);
@@ -304,6 +313,13 @@ export function ParetoSvg({
     Boolean((event.target as { closest?: (selector: string) => unknown } | null)?.closest?.(selector));
   const onControls = (event: ReactMouseEvent<SVGSVGElement>) =>
     within(event, ".pareto-groups, .pareto-settings");
+  // Set on the press that closed the settings panel, until its click.
+  const dismissing = (event: ReactMouseEvent<SVGSVGElement>) => "dismissing" in event.currentTarget.dataset;
+  const swallowDismissal = (event: ReactMouseEvent<SVGSVGElement>) => {
+    if (!dismissing(event)) return;
+    delete event.currentTarget.dataset.dismissing;
+    event.stopPropagation();
+  };
   const tooltipPoint =
     showTooltip && interactive ? points.find((point) => point.id === activeId) : undefined;
 
@@ -314,6 +330,11 @@ export function ParetoSvg({
       height={height}
       role={interactive ? "group" : "img"}
       style={{ ...baseStyle, ...(nearHover && hoveredId ? { cursor: "pointer" } : {}), ...style }}
+      // A press that closes the settings panel does nothing else: its tap or click neither
+      // selects a point nor presses a chip. The mark lives on the element, as this component
+      // keeps no state of its own.
+      onClickCapture={settings ? swallowDismissal : undefined}
+      onPointerUpCapture={settings ? (event) => dismissing(event) && event.stopPropagation() : undefined}
       // A mouse inspects the nearest point as it moves; a tap inspects the nearest point, or
       // puts the card away when none is near. A touch that becomes a scroll ends in
       // pointercancel, not pointerup, so scrolling across the plot opens nothing.
@@ -350,9 +371,12 @@ export function ParetoSvg({
       }
       // An open settings panel closes on any press outside it.
       onPointerDown={
-        settings && settingsOpen
+        settings
           ? (event) => {
-              if (!within(event, ".pareto-settings")) onSettingsOpenChange?.(false);
+              const dismiss = settingsOpen && !within(event, ".pareto-settings");
+              if (dismiss) event.currentTarget.dataset.dismissing = "";
+              else delete event.currentTarget.dataset.dismissing;
+              if (dismiss) onSettingsOpenChange?.(false);
             }
           : undefined
       }
@@ -561,6 +585,20 @@ export function ParetoSvg({
         })}
       </g>
 
+      {groups.length > 0 ? (
+        <GroupLegend
+          chips={legend.chips}
+          fontSize={size(9)}
+          highlighted={highlighted}
+          interactive={interactive}
+          onHover={(group) => onHoveredGroupChange?.(group)}
+          onPin={(group) => onPinnedGroupChange?.(group)}
+          onToggle={toggleGroup}
+          pinned={pinnedGroup}
+        />
+      ) : null}
+
+      {/* After the chips, which a card beside a point near the top can reach. */}
       {tooltipPoint ? (
         <Tooltip
           fontSize={size(10)}
@@ -573,19 +611,6 @@ export function ParetoSvg({
           width={width}
           x={scaleX(tooltipPoint.x)}
           y={scaleY(tooltipPoint.y)}
-        />
-      ) : null}
-
-      {groups.length > 0 ? (
-        <GroupLegend
-          chips={legend.chips}
-          fontSize={size(9)}
-          highlighted={highlighted}
-          interactive={interactive}
-          onHover={(group) => onHoveredGroupChange?.(group)}
-          onPin={(group) => onPinnedGroupChange?.(group)}
-          onToggle={toggleGroup}
-          pinned={pinnedGroup}
         />
       ) : null}
 

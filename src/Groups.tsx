@@ -38,13 +38,20 @@ type Chip = {
 
 const fallback = "var(--pareto-frontier, #8ee6bd)";
 
-/** The points' groups in display order (see `orderGroups`), each in its first point's color. */
+/**
+ * The points' groups in display order (see `orderGroups`), each in its first point's color and
+ * each subgroup in its first point's. `groupColorOf` colors the groups themselves when it
+ * differs, as while a group is expanded: its points take their subgroups' colors, its chip keeps
+ * the group's.
+ */
 export function groupsOf(
   points: readonly ParetoPoint[],
   colorOf: ReadonlyMap<string, string | undefined> = new Map(),
   order?: GroupOrder,
+  groupColorOf: ReadonlyMap<string, string | undefined> = colorOf,
 ): Group[] {
   const colorFor = (point: ParetoPoint) => colorOf.get(point.id) ?? point.color ?? fallback;
+  const groupColorFor = (point: ParetoPoint) => groupColorOf.get(point.id) ?? point.color ?? fallback;
   return orderGroups(points, order).map((name) => {
     const members = points.filter((point) => point.group === name);
     const subgroups = new Map<string, string>();
@@ -53,7 +60,7 @@ export function groupsOf(
     }
     return {
       name,
-      color: members[0] ? colorFor(members[0]) : fallback,
+      color: members[0] ? groupColorFor(members[0]) : fallback,
       subgroups: [...subgroups].map(([subgroup, color]) => ({ name: subgroup, color })),
     };
   });
@@ -61,12 +68,19 @@ export function groupsOf(
 
 /**
  * Chips in rows from `left`, wrapping within `maxWidth`: each group, followed by its subgroups
- * when it is expanded. `height` is the rows' total height.
+ * when it is expanded. A group with subgroups gets room for a chevron unless `expandable` is
+ * false, as on a static plot. `height` is the rows' total height.
  */
 export function layoutGroups(
   groups: readonly Group[],
   expanded: ReadonlySet<string>,
-  { left, top, maxWidth, fontSize }: { left: number; top: number; maxWidth: number; fontSize: number },
+  {
+    left,
+    top,
+    maxWidth,
+    fontSize,
+    expandable: canExpand = true,
+  }: { left: number; top: number; maxWidth: number; fontSize: number; expandable?: boolean },
 ): { chips: Chip[]; height: number } {
   const rowHeight = fontSize * 2;
   const spacing = fontSize * 1.4;
@@ -84,7 +98,7 @@ export function layoutGroups(
     x += room + spacing;
   };
   for (const group of groups) {
-    const expandable = group.subgroups.length > 0;
+    const expandable = canExpand && group.subgroups.length > 0;
     const open = expandable && expanded.has(group.name);
     place({ key: chipKey(group.name), group: group.name, name: group.name, color: group.color, depth: 0, expandable, expanded: open });
     if (!open) continue;

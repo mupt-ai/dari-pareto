@@ -194,6 +194,51 @@ describe("ParetoPlot options", () => {
   });
 });
 
+describe("ParetoPlot layering and settings", () => {
+  const grouped = props.points.map((point) => ({ ...point, group: point.id === "large" ? "Top" : "Rest" }));
+
+  test("paints the hover card over the group chips, which it can reach beside a top point", () => {
+    const markup = renderToStaticMarkup(
+      ParetoSvg({ ...props, points: grouped, showGroups: true, showTooltip: true, hoveredId: "large" }),
+    );
+    expect(markup.indexOf('class="pareto-tooltip"')).toBeGreaterThan(markup.indexOf('class="pareto-groups"'));
+  });
+
+  test("a press that closes the settings panel selects nothing and presses no chip", () => {
+    const closed: boolean[] = [];
+    const svg = ParetoSvg({
+      ...props,
+      hoverRadius: 30,
+      showSettings: true,
+      settingsOpen: true,
+      onSettingsOpenChange: (open) => closed.push(open),
+    }) as ReactElement<Record<string, unknown>>;
+    const element = { dataset: {} as Record<string, string> };
+    const press = (inPanel: boolean) => {
+      let stopped = false;
+      const event = {
+        target: { closest: (selector: string) => (inPanel && selector.includes("pareto-settings") ? {} : null) },
+        currentTarget: element,
+        pointerType: "mouse",
+        stopPropagation: () => {
+          stopped = true;
+        },
+      };
+      (svg.props.onPointerDown as (event: unknown) => void)(event);
+      (svg.props.onClickCapture as (event: unknown) => void)(event);
+      return stopped;
+    };
+
+    // Outside the panel: it closes, and the click that follows goes no further.
+    expect(press(false)).toBe(true);
+    expect(closed).toEqual([false]);
+    expect("dismissing" in element.dataset).toBe(false);
+    // Inside it: the panel's own controls get the click.
+    expect(press(true)).toBe(false);
+    expect(closed).toEqual([false]);
+  });
+});
+
 describe("ParetoPlot hover radius", () => {
   test("inspects the nearest point within the radius, and nothing beyond it", () => {
     let hovered = null as string | null;

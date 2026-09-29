@@ -1,4 +1,4 @@
-import { type KeyboardEvent, useEffect, useState } from "react";
+import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 
 import { CAP_HEIGHT, CHARACTER_WIDTH } from "./labels.js";
 
@@ -58,6 +58,14 @@ export function Settings({ width, fontSize, open, size, onOpenChange, onSizeChan
     setDraft(String(next));
     if (next !== size) onSizeChange(next);
   };
+  // Closing the panel applies what was typed, as leaving the field does: a press outside the
+  // panel closes it before the field would lose focus, so the field never sees it go. Escape
+  // puts the size back first, so closing with it changes nothing.
+  const wasOpen = useRef(open);
+  useEffect(() => {
+    if (wasOpen.current && !open) commit();
+    wasOpen.current = open;
+  }, [open]);
 
   const x = width - EDGE - BUTTON;
   const y = EDGE;

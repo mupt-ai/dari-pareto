@@ -36,6 +36,42 @@ describe("groups", () => {
     expect(narrow.height).toBeGreaterThan(wide.height);
   });
 
+  test("keeps a group chip in its group's color while its subgroups are listed", () => {
+    const custom = ["m1", "m2"].map((subgroup, index) => ({
+      id: subgroup,
+      label: subgroup,
+      x: index + 1,
+      y: 50 + index,
+      group: "Custom",
+      subgroup,
+      color: "#888888",
+    }));
+    const markup = renderToStaticMarkup(
+      ParetoSvg({ ...props, points: custom, palette: ["#aaaaaa", "#bbbbbb"], expandedGroups: ["Custom"] }),
+    );
+    const chipColor = (name: string) =>
+      markup.match(new RegExp(`aria-label="Highlight ${name}"[^]*?<circle[^>]*fill="([^"]+)"`))?.[1];
+
+    expect(chipColor("Custom")).toBe("#888888");
+    expect(chipColor("m1")).toBe("#aaaaaa");
+    expect(chipColor("m2")).toBe("#bbbbbb");
+  });
+
+  test("leaves room for a chevron only where one is drawn", () => {
+    const groups = [
+      { name: "Custom", color: "#000", subgroups: [{ name: "m1", color: "#111" }] },
+      { name: "Next", color: "#000", subgroups: [] },
+    ];
+    const layout = (expandable?: boolean) =>
+      layoutGroups(groups, new Set(), { left: 0, top: 0, maxWidth: 1000, fontSize: 10, expandable }).chips;
+    const [interactiveCustom, interactiveNext] = layout();
+    const [staticCustom, staticNext] = layout(false);
+
+    expect(interactiveCustom?.expandable).toBe(true);
+    expect(staticCustom?.expandable).toBe(false);
+    expect((interactiveNext?.x ?? 0) - (staticNext?.x ?? 0)).toBeCloseTo(13, 5);
+  });
+
   test("fades points outside a highlighted group", () => {
     const markup = renderToStaticMarkup(ParetoSvg({ ...props, hoveredGroup: chipKey("Bolt") }));
     expect(markup.match(/pareto-point[^"]* faded/g)).toHaveLength(2);
