@@ -22,9 +22,12 @@ export function stepTextSize(size: number, direction: 1 | -1): number {
   return clampTextSize(next);
 }
 
-/** A typed text size ("120", "120%", " 73.4 "), or `current` when it holds no number. */
+/**
+ * A typed text size ("120", "120%", " 73.4 ", "-5"), kept in range, or `current` when it holds
+ * no number. A minus sign counts, so a negative size is below the range, not above it.
+ */
 export function parseTextSize(typed: string, current: number): number {
-  const value = Number.parseFloat(typed.replace(/[^\d.]/g, ""));
+  const value = Number.parseFloat(typed.replace(/[^\d.-]/g, ""));
   return Number.isFinite(value) ? clampTextSize(value) : current;
 }
 

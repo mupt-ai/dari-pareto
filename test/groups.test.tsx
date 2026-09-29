@@ -81,6 +81,8 @@ describe("settings", () => {
     expect(parseTextSize(" 73.4% ", 100)).toBe(73);
     expect(parseTextSize("999", 100)).toBe(200);
     expect(parseTextSize("5", 100)).toBe(50);
+    expect(parseTextSize("-1231", 100)).toBe(50);
+    expect(parseTextSize("-", 100)).toBe(100);
     expect(parseTextSize("big", 90)).toBe(90);
   });
 });
