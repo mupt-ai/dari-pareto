@@ -54,7 +54,9 @@ The SVG preserves its aspect ratio while scaling to its container width. Its
 logical size defaults to `720 × 380`; use `width` and `height` to change it.
 Each interactive point is a tab stop with a descriptive screen-reader label,
 accepts pointer input, and is selectable with Enter or Space. `onSelect`
-receives the complete selected point.
+receives the complete selected point. The plot doesn't keep a selection of its
+own: pass the chosen point's id as `selectedId` to draw it selected. `className`
+and `style` go on the root `<svg>`, for example to set the CSS variables below.
 
 ## Static SVG
 
@@ -162,9 +164,12 @@ as before.
   to the next multiple of 10. Larger text also grows the space around the axes.
 - **Label placement.** `labelPlacement: "auto"` places each label from
   `showPointLabels` above, beside, below or diagonally off its point, wherever it
-  covers no point and no other label, preferring spots off the frontier line.
-  Frontier labels are placed first. A label with no room is left out and still
-  appears on hover. The default, `"above"`, centers every label above its point.
+  covers no point and no other label and is nearer its own point than any other,
+  preferring spots off the frontier line. Frontier labels are placed first. A
+  label with no room is left out and still appears on hover. Label sizes are
+  estimated from monospace character widths, so with a proportional font the
+  spacing is approximate. The default, `"above"`, centers every label above its
+  point.
 - **Tooltip.** `showTooltip: true` shows a card with the hovered or focused
   point's label, both axis values and its `description`, in place of its label,
   and dims the other labels. It sits beside the point, or above or below it on a
@@ -186,6 +191,7 @@ Override CSS variables on the plot or a parent element:
   --pareto-grid: #263631;
   --pareto-frontier: #8ee6bd;
   --pareto-point: #60736b;
+  --pareto-font-family: "JetBrains Mono", ui-monospace, monospace;
   /* Optional. Each falls back to the value shown in parentheses. */
   --pareto-frontier-line: #8ee6bd; /* (--pareto-frontier) */
   --pareto-glow: rgba(142, 230, 189, 0.7); /* (this mint, or a colored point's own color) */
