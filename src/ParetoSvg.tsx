@@ -3,7 +3,7 @@ import type { CSSProperties, KeyboardEvent, MouseEvent as ReactMouseEvent, Ref }
 import { axisScale } from "./axis.js";
 import { pointColors } from "./colors.js";
 import { paretoFrontier, validatePoints } from "./frontier.js";
-import { GroupLegend, groupsOf, layoutGroups, parseChipKey } from "./Groups.js";
+import { GroupLegend, groupsOf, inChip, layoutGroups, parseChipKey } from "./Groups.js";
 import { CHARACTER_WIDTH, placeLabels } from "./labels.js";
 import { nearestWithin } from "./pointer.js";
 import { SETTINGS_BUTTON, Settings } from "./Settings.js";
@@ -286,10 +286,7 @@ export function ParetoSvg({
   const scaleY = (value: number) => top + plotHeight - yAt(value) * plotHeight;
   const colored = points.some((point) => colorOf.get(point.id));
   const highlighted = groups.length > 0 ? (hoveredGroup ?? pinnedGroup) : null;
-  const shown = highlighted === null ? null : parseChipKey(highlighted);
-  const faded = (point: ParetoPoint) =>
-    shown !== null &&
-    (point.group !== shown.group || (shown.subgroup !== undefined && point.subgroup !== shown.subgroup));
+  const faded = (point: ParetoPoint) => highlighted !== null && !inChip(point, highlighted);
   // Collapsing a group lets go of any of its subgroups that was highlighted.
   const toggleGroup = (group: string) => {
     const open = expanded.has(group);

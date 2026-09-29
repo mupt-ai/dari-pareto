@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
 
-import { chipKey, groupsOf, layoutGroups } from "../src/Groups";
+import { chipKey, groupsOf, inChip, layoutGroups } from "../src/Groups";
 import { orderGroups } from "../src/order";
 import { ParetoSvg } from "../src/ParetoSvg";
 import { parseTextSize, stepFrom, stepTextSize } from "../src/Settings";
@@ -70,6 +70,14 @@ describe("groups", () => {
     expect(interactiveCustom?.expandable).toBe(true);
     expect(staticCustom?.expandable).toBe(false);
     expect((interactiveNext?.x ?? 0) - (staticNext?.x ?? 0)).toBeCloseTo(13, 5);
+  });
+
+  test("a chip stands for its group's points, or only its subgroup's", () => {
+    const point = { id: "p", label: "P", x: 1, y: 1, group: "Custom", subgroup: "m1" };
+    expect(inChip(point, chipKey("Custom"))).toBe(true);
+    expect(inChip(point, chipKey("Custom", "m1"))).toBe(true);
+    expect(inChip(point, chipKey("Custom", "m2"))).toBe(false);
+    expect(inChip(point, chipKey("Acme"))).toBe(false);
   });
 
   test("fades points outside a highlighted group", () => {

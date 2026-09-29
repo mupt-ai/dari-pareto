@@ -143,6 +143,11 @@ as before.
   colored like the group's first point. Hovering or focusing a chip fades every
   point and label outside its group; a click or tap holds the highlight until
   the chip is pressed again. Static plots show the chips as a key.
+- **Reporting to the page.** `onActivePointChange` is called with the point being
+  inspected (hovered, focused or tapped) whenever it changes, and with `null` when
+  none is. `onHighlightChange` is called with the points of the highlighted group
+  chip, hovered or held, and with `null` when none is. A page can use them to mark
+  the same points elsewhere, such as rows in a table beside the plot.
 - **Subgroups.** A point's `subgroup` is a finer group within its `group`, such
   as the model behind a custom endpoint. A group with subgroups gets a chevron
   after its chip's name: it lists the subgroups as chips of their own, each in

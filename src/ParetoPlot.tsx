@@ -1,5 +1,6 @@
 import { type RefObject, useEffect, useRef, useState } from "react";
 
+import { inChip } from "./Groups.js";
 import { DEFAULT_WIDTH, ParetoSvg, TOUCH_TARGET } from "./ParetoSvg.js";
 import type { ParetoPlotProps } from "./types.js";
 
@@ -35,6 +36,18 @@ function useDrawnScale(svg: RefObject<SVGSVGElement | null>, width: number): num
   return drawn > 0 ? width / drawn : 1;
 }
 
+/** Calls `report` with `value` each time it changes after the first render, never on mount. */
+function useReport<Value>(value: Value, report: (value: Value) => void) {
+  const last = useRef(value);
+  const latest = useRef(report);
+  latest.current = report;
+  useEffect(() => {
+    if (Object.is(last.current, value)) return;
+    last.current = value;
+    latest.current(value);
+  }, [value]);
+}
+
 export function ParetoPlot(props: ParetoPlotProps) {
   const svg = useRef<SVGSVGElement>(null);
   const touch = useCoarsePointer();
@@ -46,6 +59,13 @@ export function ParetoPlot(props: ParetoPlotProps) {
   const [expandedGroups, setExpandedGroups] = useState<string[]>([]);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [textSize, setTextSize] = useState(100);
+  // The page hears which point is inspected and which chip is highlighted, as they change.
+  useReport(hoveredId ?? focusedId, (id) =>
+    props.onActivePointChange?.(props.points.find((point) => point.id === id) ?? null),
+  );
+  useReport(hoveredGroup ?? pinnedGroup, (key) =>
+    props.onHighlightChange?.(key === null ? null : props.points.filter((point) => inChip(point, key))),
+  );
   return (
     <ParetoSvg
       {...props}

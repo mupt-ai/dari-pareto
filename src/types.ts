@@ -77,6 +77,17 @@ export type ParetoPlotProps = {
   description?: string;
   selectedId?: string | null;
   onSelect?: (point: ParetoPoint) => void;
+  /**
+   * Called when the point being inspected changes, hovered, focused or tapped, with that point,
+   * or with null when none is: for a page that marks the same point elsewhere, such as a row in
+   * a table beside the plot.
+   */
+  onActivePointChange?: (point: ParetoPoint | null) => void;
+  /**
+   * Called when the highlighted group chip changes, hovered or held by a click or tap (see
+   * `showGroups`), with the points of that group or subgroup, or with null when none is.
+   */
+  onHighlightChange?: (points: ParetoPoint[] | null) => void;
   showLegend?: boolean;
   showPointLabels?: "none" | "frontier" | "all";
   /**

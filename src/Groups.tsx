@@ -21,6 +21,12 @@ export function parseChipKey(key: string): { group: string; subgroup?: string } 
   return subgroup === undefined ? { group } : { group, subgroup };
 }
 
+/** Whether a point is one a chip stands for: in its group, and in its subgroup if it has one. */
+export function inChip(point: ParetoPoint, key: string): boolean {
+  const { group, subgroup } = parseChipKey(key);
+  return point.group === group && (subgroup === undefined || point.subgroup === subgroup);
+}
+
 type Chip = {
   key: string;
   group: string;
