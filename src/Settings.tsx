@@ -43,7 +43,8 @@ export function stepFrom(typed: string, size: number, direction: 1 | -1): number
 }
 
 /** Size of the settings button, square, in the plot's top right corner. */
-const BUTTON = 22;
+export const SETTINGS_BUTTON = 22;
+const BUTTON = SETTINGS_BUTTON;
 const EDGE = 4;
 
 type SettingsProps = {

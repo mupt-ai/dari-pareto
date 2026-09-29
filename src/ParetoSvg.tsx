@@ -6,7 +6,7 @@ import { paretoFrontier, validatePoints } from "./frontier.js";
 import { GroupLegend, groupsOf, layoutGroups, parseChipKey } from "./Groups.js";
 import { CHARACTER_WIDTH, placeLabels } from "./labels.js";
 import { nearestWithin } from "./pointer.js";
-import { Settings } from "./Settings.js";
+import { SETTINGS_BUTTON, Settings } from "./Settings.js";
 import { Tooltip } from "./Tooltip.js";
 import type { AxisOptions, ParetoPlotProps, ParetoPoint } from "./types.js";
 
@@ -265,16 +265,22 @@ export function ParetoSvg({
     ? groupsOf(points, colorOf, groupOrder, expanded.size > 0 ? pointColors(points, palette, { order: groupOrder }) : colorOf)
     : [];
   const chipsTop = showTitle || showLegend ? 34 : 6;
+  // On a touch screen the settings button's target is a fingertip square in the top right
+  // corner, drawn over what is beneath it: chips end before it, and the plot starts below it.
+  const settingsReach = settings && touchTarget > SETTINGS_BUTTON ? touchTarget : 0;
   const legend = layoutGroups(groups, expanded, {
     left,
     top: chipsTop,
-    maxWidth: plotWidth,
+    maxWidth: plotWidth - Math.max(0, settingsReach - MARGIN.right),
     fontSize: size(9),
     expandable: interactive,
     target: touchTarget,
   });
   const baseTop = showTitle || showLegend ? MARGIN.top : BARE_TOP;
-  const top = groups.length > 0 ? Math.max(baseTop, chipsTop + legend.height + 10) : baseTop;
+  const top = Math.max(
+    groups.length > 0 ? Math.max(baseTop, chipsTop + legend.height + 10) : baseTop,
+    settingsReach ? settingsReach + 4 : 0,
+  );
   const plotHeight = Math.max(1, height - top - bottom);
   const scaleX = (value: number) => left + xAt(value) * plotWidth;
   const scaleY = (value: number) => top + plotHeight - yAt(value) * plotHeight;

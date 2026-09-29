@@ -39,6 +39,8 @@ type Chip = {
   hitHeight: number;
   /** The chevron's target width, from just before the chevron. */
   toggleWidth: number;
+  /** Where the chevron is drawn: just after the name, and on a touch screen after the chip's target. */
+  chevronX: number;
 };
 
 const fallback = "var(--pareto-frontier, #8ee6bd)";
@@ -102,21 +104,28 @@ export function layoutGroups(
   const chips: Chip[] = [];
   let x = left;
   let row = 0;
-  const place = (chip: Omit<Chip, "x" | "y" | "width" | "hitWidth" | "hitHeight" | "toggleWidth">) => {
+  const place = (
+    chip: Omit<Chip, "x" | "y" | "width" | "hitWidth" | "hitHeight" | "toggleWidth" | "chevronX">,
+  ) => {
     const width = fontSize * 1.3 + chip.name.length * fontSize * CHARACTER_WIDTH;
     const hitWidth = Math.max(width + fontSize * 0.8, target);
     const room = width + (chip.expandable ? fontSize * 1.3 : 0);
+    // The chevron sits 0.55 em past the name, and its target starts 0.6 em before it. On a touch
+    // screen, where a short chip's target can reach past that, the chevron moves after it, so the
+    // two targets never overlap.
+    const chevron = target
+      ? Math.max(width + fontSize * 0.55, hitWidth + fontSize * 0.2)
+      : width + fontSize * 0.55;
     // On a touch screen the targets can be wider than the chip; the next chip starts after them.
-    // The chevron's target starts just before it, 0.55 em past the name.
     const reach = target
-      ? Math.max(room, hitWidth - fontSize * 0.4, chip.expandable ? width - fontSize * 0.05 + toggleWidth : 0)
+      ? Math.max(room, hitWidth - fontSize * 0.4, chip.expandable ? chevron - fontSize * 0.6 + toggleWidth : 0)
       : room;
     if (x > left && x + reach > left + maxWidth) {
       x = left;
       row++;
     }
     const y = top + row * rowHeight + rowHeight / 2;
-    chips.push({ ...chip, x, y, width, hitWidth, hitHeight: rowHeight, toggleWidth });
+    chips.push({ ...chip, x, y, width, hitWidth, hitHeight: rowHeight, toggleWidth, chevronX: x + chevron });
     x += reach + spacing;
   };
   for (const group of groups) {
@@ -184,7 +193,7 @@ export function GroupLegend({
   return (
     <g aria-label={interactive ? "Groups" : undefined} className="pareto-groups" fontSize={fontSize}>
       {chips.map((chip) => {
-        const chevronX = chip.x + chip.width + fontSize * 0.55;
+        const { chevronX } = chip;
         const size = fontSize * 0.32;
         return (
           <g key={chip.key}>

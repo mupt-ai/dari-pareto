@@ -288,6 +288,46 @@ describe("ParetoPlot on touch screens", () => {
   });
 });
 
+describe("ParetoPlot touch targets", () => {
+  const number = (tag: string, name: string) => Number(tag.match(new RegExp(` ${name}="([^"]+)"`))?.[1]);
+  const rects = (markup: string, label: string) =>
+    [...markup.matchAll(new RegExp(`aria-label="${label}[^"]*"[^>]*><rect[^>]*>`, "g"))].map((match) => {
+      const rect = match[0].slice(match[0].indexOf("<rect"));
+      return { left: number(rect, "x"), right: number(rect, "x") + number(rect, "width"), top: number(rect, "y") };
+    });
+
+  test("keep a short chip's target and its chevron's apart", () => {
+    const points = [
+      { id: "a", label: "A", x: 1, y: 60, group: "AI", subgroup: "one" },
+      { id: "b", label: "B", x: 2, y: 80, group: "AI", subgroup: "two" },
+    ];
+    const markup = renderToStaticMarkup(ParetoSvg({ ...props, points, showGroups: true, touchTarget: 44 }));
+    const [chip] = rects(markup, "Highlight AI");
+    const [chevron] = rects(markup, "Expand AI");
+    expect(chip && chevron && chip.right - chevron.left).toBeLessThan(1e-6);
+  });
+
+  test("keep chips and the plot clear of the settings button's target", () => {
+    const grouped = Array.from({ length: 12 }, (_, index) => ({
+      id: `p${index}`,
+      label: `P${index}`,
+      x: index + 1,
+      y: 50 + index,
+      group: `Vendor ${index}`,
+    }));
+    const width = 400;
+    const markup = renderToStaticMarkup(
+      ParetoSvg({ ...props, points: grouped, width, showGroups: true, showSettings: true, touchTarget: 52 }),
+    );
+    for (const chip of rects(markup, "Highlight")) expect(chip.right).toBeLessThanOrEqual(width - 52);
+    const bare = renderToStaticMarkup(
+      ParetoSvg({ ...props, width, showTitle: false, showLegend: false, showSettings: true, touchTarget: 52 }),
+    );
+    const gridTop = Math.min(...[...bare.matchAll(/<line stroke="var\(--pareto-grid[^>]*y1="([\d.]+)"/g)].map((match) => Number(match[1])));
+    expect(gridTop).toBeGreaterThanOrEqual(52);
+  });
+});
+
 describe("ParetoPlot hover radius", () => {
   test("inspects the nearest point within the radius, and nothing beyond it", () => {
     let hovered = null as string | null;
