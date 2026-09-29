@@ -1,4 +1,4 @@
-import type { CSSProperties, KeyboardEvent, MouseEvent as ReactMouseEvent } from "react";
+import type { CSSProperties, KeyboardEvent, MouseEvent as ReactMouseEvent, Ref } from "react";
 
 import { axisScale } from "./axis.js";
 import { pointColors } from "./colors.js";
@@ -10,7 +10,7 @@ import { Settings } from "./Settings.js";
 import { Tooltip } from "./Tooltip.js";
 import type { AxisOptions, ParetoPlotProps, ParetoPoint } from "./types.js";
 
-const DEFAULT_WIDTH = 620;
+export const DEFAULT_WIDTH = 620;
 const DEFAULT_HEIGHT = 290;
 const MARGIN = { top: 45, right: 36, bottom: 56, left: 54 } as const;
 /** The top margin when neither the title nor the legend is drawn. */
@@ -29,7 +29,7 @@ const TICK_MARK = 5;
  * the filled, Pareto-efficient points the heavier mark at the same apparent size.
  */
 const RING_RADIUS = 3.5;
-/** The least a fingertip needs, in px: a control's target on a touch screen. */
+/** The least a fingertip needs, in screen pixels: a control's target on a touch screen. */
 export const TOUCH_TARGET = 44;
 
 const baseStyle = {
@@ -149,10 +149,14 @@ type ParetoSvgProps = ParetoPlotProps & {
   expandedGroups?: readonly string[];
   onExpandedGroupsChange?: (groups: string[]) => void;
   /**
-   * A coarse pointer, such as a finger. Chips, their chevrons and the settings controls then get
-   * targets `TOUCH_TARGET` across, with the chip rows spaced to fit.
+   * On a coarse pointer, such as a finger, the least size of a control's target in the plot's
+   * own units: `TOUCH_TARGET` screen pixels at the size the plot is drawn. Chips, their chevrons
+   * and the settings controls get targets this big, with the chip rows spaced to fit. 0, the
+   * default, for a fine pointer.
    */
-  touch?: boolean;
+  touchTarget?: number;
+  /** The root element, for measuring the size the plot is drawn at. */
+  svgRef?: Ref<SVGSVGElement>;
   /** Whether the settings panel is open, and the viewer's text size in percent. */
   settingsOpen?: boolean;
   textSize?: number;
@@ -194,7 +198,8 @@ export function ParetoSvg({
   onPinnedGroupChange,
   expandedGroups = [],
   onExpandedGroupsChange,
-  touch = false,
+  touchTarget = 0,
+  svgRef,
   settingsOpen = false,
   textSize = 100,
   onSettingsOpenChange,
@@ -266,7 +271,7 @@ export function ParetoSvg({
     maxWidth: plotWidth,
     fontSize: size(9),
     expandable: interactive,
-    target: touch ? TOUCH_TARGET : 0,
+    target: touchTarget,
   });
   const baseTop = showTitle || showLegend ? MARGIN.top : BARE_TOP;
   const top = groups.length > 0 ? Math.max(baseTop, chipsTop + legend.height + 10) : baseTop;
@@ -356,6 +361,7 @@ export function ParetoSvg({
     <svg
       aria-label={title}
       className={className}
+      ref={svgRef}
       height={height}
       role={interactive ? "group" : "img"}
       style={{ ...baseStyle, ...(nearHover && hoveredId ? { cursor: "pointer" } : {}), ...style }}
@@ -590,7 +596,7 @@ export function ParetoSvg({
                   className="pareto-hit"
                   cx={scaleX(point.x)}
                   cy={scaleY(point.y)}
-                  r={Math.min(hoverRadius ?? 0, TOUCH_TARGET / 2)}
+                  r={Math.min(hoverRadius ?? 0, Math.max(TOUCH_TARGET, touchTarget) / 2)}
                   style={{ fill: "transparent", stroke: "none", filter: "none" }}
                 />
               ) : null}
@@ -663,7 +669,7 @@ export function ParetoSvg({
           onSizeChange={(size) => onTextSizeChange?.(size)}
           open={settingsOpen}
           size={textSize}
-          target={touch ? TOUCH_TARGET : 0}
+          target={touchTarget}
           width={width}
         />
       ) : null}

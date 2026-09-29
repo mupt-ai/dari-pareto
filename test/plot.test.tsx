@@ -261,7 +261,7 @@ describe("ParetoPlot on touch screens", () => {
   });
 
   test("gives points a fingertip target only when the pointer picks by radius", () => {
-    const hits = (extra: Partial<ParetoPlotProps>) =>
+    const hits = (extra: Partial<Parameters<typeof ParetoSvg>[0]>) =>
       [...renderToStaticMarkup(ParetoSvg({ ...props, ...extra })).matchAll(/class="pareto-hit"[^>]*r="([\d.]+)"/g)].map(
         (match) => Number(match[1]),
       );
@@ -269,19 +269,22 @@ describe("ParetoPlot on touch screens", () => {
     expect(hits({ hoverRadius: 36 })).toEqual([22, 22, 22]);
     expect(hits({ hoverRadius: 10 })).toEqual([10, 10, 10]);
     expect(hits({ hoverRadius: 36, mode: "static" })).toEqual([]);
+    expect(hits({ hoverRadius: 36, touchTarget: 52 })).toEqual([26, 26, 26]);
   });
 
   test("sizes chips and the settings button for a fingertip on touch, and only then", () => {
-    const heights = (touch: boolean) => {
+    const heights = (touchTarget: number) => {
       const markup = renderToStaticMarkup(
-        ParetoSvg({ ...props, points: grouped, showGroups: true, showSettings: true, touch }),
+        ParetoSvg({ ...props, points: grouped, showGroups: true, showSettings: true, touchTarget }),
       );
       const chip = markup.match(/aria-label="Highlight Top"[^>]*><rect[^>]*height="([\d.]+)"/)?.[1];
       const settings = markup.match(/aria-label="Plot Settings"[^>]*><rect[^>]*height="([\d.]+)"/)?.[1];
       return [Number(chip), Number(settings)];
     };
-    expect(heights(false)).toEqual([18, 22]);
-    expect(heights(true)).toEqual([44, 44]);
+    expect(heights(0)).toEqual([18, 22]);
+    expect(heights(44)).toEqual([44, 44]);
+    // A plot drawn smaller than its width asks for more of its own units.
+    expect(heights(52)).toEqual([52, 52]);
   });
 });
 
