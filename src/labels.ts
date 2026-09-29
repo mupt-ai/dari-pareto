@@ -11,6 +11,13 @@ export type PlacedLabel = {
 
 /** Approximate advance of one character of a monospace font, in ems. */
 export const CHARACTER_WIDTH = 0.62;
+
+/**
+ * Capital letters' height, in ems, about 0.7 in most fonts. Text centered beside a control sits
+ * on a baseline half of it below the control's middle, so capitals and digits are centered on
+ * it; `dominant-baseline: middle` centers lowercase letters instead, leaving capitals high.
+ */
+export const CAP_HEIGHT = 0.7;
 /** Space between a point's center and its label. */
 const GAP = 7;
 /**

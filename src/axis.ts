@@ -9,8 +9,11 @@ export type AxisScale = {
 
 /** Share of a log axis kept at its start for values at or below zero, which it cannot place. */
 const ZERO_BAND = 0.06;
-/** Tick multiples within each decade of a log axis, from sparse to dense. */
-const LOG_MULTIPLES = [[1], [1, 2, 5], [1, 2, 3, 4, 5, 6, 7, 8, 9]] as const;
+/**
+ * Tick multiples within each decade of a log axis, from sparse to dense; an axis takes the
+ * sparsest that gives about the ticks it asks for.
+ */
+const LOG_MULTIPLES = [[1], [1, 3], [1, 2, 5], [1, 2, 3, 4, 5, 6, 7, 8, 9]] as const;
 
 /** The range an axis covers, the values it labels, and where values sit along it. */
 export function axisScale(values: readonly number[], axis: AxisOptions): AxisScale {

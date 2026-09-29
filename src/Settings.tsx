@@ -1,6 +1,6 @@
 import { type KeyboardEvent, useEffect, useState } from "react";
 
-import { CHARACTER_WIDTH } from "./labels.js";
+import { CAP_HEIGHT, CHARACTER_WIDTH } from "./labels.js";
 
 /** The viewer's text size, in percent of the plot's own. */
 export const MIN_TEXT_SIZE = 50;
@@ -84,6 +84,8 @@ export function Settings({ width, fontSize, open, size, onOpenChange, onSizeChan
   const smallerX = panelLeft + padding + labelWidth + fontSize;
   const fieldX = smallerX + control + gap;
   const unitX = fieldX + fieldWidth + gap / 2;
+  // The label's and the unit's baseline, centering them on the controls (see CAP_HEIGHT).
+  const baseline = middle + (fontSize * CAP_HEIGHT) / 2;
   const largerX = unitX + unitWidth + gap * 2;
 
   const stepButton = (label: string, symbol: string, left: number, direction: 1 | -1) => {
@@ -168,7 +170,7 @@ export function Settings({ width, fontSize, open, size, onOpenChange, onSizeChan
             x={panelLeft}
             y={panelTop}
           />
-          <text dominantBaseline="middle" fill="var(--pareto-muted, #91a39b)" x={panelLeft + padding} y={middle}>
+          <text fill="var(--pareto-muted, #91a39b)" x={panelLeft + padding} y={baseline}>
             {label}
           </text>
           {stepButton("Smaller Text", "−", smallerX, -1)}
@@ -192,7 +194,7 @@ export function Settings({ width, fontSize, open, size, onOpenChange, onSizeChan
               value={draft}
             />
           </foreignObject>
-          <text dominantBaseline="middle" fill="var(--pareto-muted, #91a39b)" x={unitX} y={middle}>
+          <text fill="var(--pareto-muted, #91a39b)" x={unitX} y={baseline}>
             %
           </text>
           {stepButton("Larger Text", "+", largerX, 1)}

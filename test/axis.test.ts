@@ -77,6 +77,11 @@ describe("log axis", () => {
     expect(shape([0.21, 4.68], log).domain).toEqual([0.15, 6]);
   });
 
+  test("asks fewer ticks of a short axis, and gets 1, 3, 10 rather than 1, 2, 5, 10", () => {
+    expect(shape([0.12, 5.1], { ...log, ticks: 4 }).ticks).toEqual([0.1, 0.3, 1, 3]);
+    expect(shape([0.12, 5.1], log).ticks).toEqual([0.1, 0.2, 0.5, 1, 2, 5]);
+  });
+
   test("ticks only on powers of ten across many decades", () => {
     expect(shape([0.01, 100], log).ticks).toEqual([0.01, 0.1, 1, 10, 100]);
   });

@@ -122,7 +122,8 @@ as before.
   is kept as given, with round ticks inside it.
 - **Log scale.** `scale: "log"` on an axis suits values spanning orders of
   magnitude, such as prices: equal distances are equal ratios. Ticks fall on
-  round values within each decade (1, 10, 100; or 1, 2, 5, 10, …), or on a round
+  round values within each decade (1, 10, 100; 1, 3, 10, 30; or 1, 2, 5, 10, …,
+  whichever comes nearest the `ticks` count), or on a round
   linear step when the data spans only part of a decade, and `nice` rounds the
   domain out to match. Values at or below zero, which a log scale cannot place,
   sit on a zero tick at the axis start in a short band of their own; the tooltip

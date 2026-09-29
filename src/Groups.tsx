@@ -1,6 +1,6 @@
 import type { KeyboardEvent } from "react";
 
-import { CHARACTER_WIDTH } from "./labels.js";
+import { CAP_HEIGHT, CHARACTER_WIDTH } from "./labels.js";
 import { orderGroups } from "./order.js";
 import type { GroupOrder, ParetoPoint } from "./types.js";
 
@@ -173,11 +173,11 @@ export function GroupLegend({
                 y={chip.y - fontSize}
               />
               <circle cx={chip.x + fontSize * 0.35} cy={chip.y} fill={chip.color} r={fontSize * 0.35} />
+              {/* Centered on the dot and the chevron (see CAP_HEIGHT). */}
               <text
-                dominantBaseline="middle"
                 fill="var(--pareto-muted, #91a39b)"
                 x={chip.x + fontSize * 1.3}
-                y={chip.y}
+                y={chip.y + (fontSize * CAP_HEIGHT) / 2}
               >
                 {chip.name}
               </text>
