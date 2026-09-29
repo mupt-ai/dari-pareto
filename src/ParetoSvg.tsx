@@ -5,7 +5,7 @@ import { paretoFrontier, validatePoints } from "./frontier.js";
 import { GroupLegend, groupsOf, layoutGroups } from "./Groups.js";
 import { CHARACTER_WIDTH, placeLabels } from "./labels.js";
 import { nearestWithin } from "./pointer.js";
-import { Settings, textFactor } from "./Settings.js";
+import { Settings } from "./Settings.js";
 import { Tooltip } from "./Tooltip.js";
 import type { AxisOptions, ParetoPlotProps, ParetoPoint } from "./types.js";
 
@@ -81,6 +81,13 @@ const settingsStyles = `
   .pareto-settings-button:hover, .pareto-settings-button:focus-visible, .pareto-settings-button[aria-expanded="true"] { opacity: 1; }
   .pareto-settings-step.disabled { cursor: default; opacity: .35; }
   .pareto-settings-button:focus-visible rect, .pareto-settings-step:focus-visible rect { stroke: var(--pareto-muted, #91a39b); }
+  .pareto-settings-field {
+    box-sizing: border-box; width: 100%; height: 100%; margin: 0; padding: 0;
+    border: 1px solid var(--pareto-grid, #263631); border-radius: 0; outline: none;
+    background: transparent; color: var(--pareto-foreground, #eef4ed);
+    font: inherit; text-align: center;
+  }
+  .pareto-settings-field:focus { border-color: var(--pareto-muted, #91a39b); }
 `;
 
 function defaultFormat(value: number): string {
@@ -111,11 +118,11 @@ type ParetoSvgProps = ParetoPlotProps & {
   pinnedGroup?: string | null;
   onHoveredGroupChange?: (group: string | null) => void;
   onPinnedGroupChange?: (group: string | null) => void;
-  /** Whether the settings panel is open, and the viewer's text size step. */
+  /** Whether the settings panel is open, and the viewer's text size in percent. */
   settingsOpen?: boolean;
-  textStep?: number;
+  textSize?: number;
   onSettingsOpenChange?: (open: boolean) => void;
-  onTextStepChange?: (step: number) => void;
+  onTextSizeChange?: (size: number) => void;
 };
 
 export function ParetoSvg({
@@ -149,9 +156,9 @@ export function ParetoSvg({
   onHoveredGroupChange,
   onPinnedGroupChange,
   settingsOpen = false,
-  textStep = 0,
+  textSize = 100,
   onSettingsOpenChange,
-  onTextStepChange,
+  onTextSizeChange,
 }: ParetoSvgProps) {
   validatePoints(points);
   const activeId = hoveredId ?? focusedId;
@@ -163,10 +170,10 @@ export function ParetoSvg({
   if (textScale !== undefined && (!Number.isFinite(textScale) || textScale <= 0)) {
     throw new Error("Pareto plot text scale must be a positive number.");
   }
-  // The plot's own text scale, times the viewer's step from the settings panel.
+  // The plot's own text scale, times the viewer's size from the settings panel.
   const scale =
-    textScale !== undefined || (settings && textStep !== 0)
-      ? (textScale ?? 1) * (settings ? textFactor(textStep) : 1)
+    textScale !== undefined || (settings && textSize !== 100)
+      ? (textScale ?? 1) * (settings ? textSize / 100 : 1)
       : undefined;
   const size = (base: number) => base * (scale ?? 1);
 
@@ -190,7 +197,13 @@ export function ParetoSvg({
   // label, a gap, then the plot. Unscaled plots keep the fixed layout.
   let left: number = MARGIN.left;
   let yTitleX = Y_TITLE_X;
+  // Below the plot: the x tick labels, then the x-axis title. Scaled text pushes the tick
+  // labels down to stay clear of the lowest y tick label, and the plot's bottom up to fit.
+  let bottom: number = MARGIN.bottom;
+  let xTickOffset = 20;
   if (scale !== undefined) {
+    xTickOffset = size(10) / 2 + 6 + size(9) * 0.75;
+    bottom = Math.max(MARGIN.bottom, Math.ceil(xTickOffset + size(9) * 0.3 + 8 + size(11) * 0.8 + 8));
     const titleSize = size(11);
     const widestTick = Math.max(0, ...shownYTicks.map((tick) => formatY(tick).length)) * size(10) * CHARACTER_WIDTH;
     // Capitals rise about 0.8 em from the rotated baseline, toward the left edge.
@@ -204,7 +217,7 @@ export function ParetoSvg({
   const legend = layoutGroups(groups, { left, top: chipsTop, maxWidth: plotWidth, fontSize: size(9) });
   const baseTop = showTitle || showLegend ? MARGIN.top : BARE_TOP;
   const top = groups.length > 0 ? Math.max(baseTop, chipsTop + legend.height + 10) : baseTop;
-  const plotHeight = Math.max(1, height - top - MARGIN.bottom);
+  const plotHeight = Math.max(1, height - top - bottom);
   const scaleX = (value: number) => left + xAt(value) * plotWidth;
   const scaleY = (value: number) => top + plotHeight - yAt(value) * plotHeight;
   const colored = points.some((point) => point.color);
@@ -409,7 +422,7 @@ export function ParetoSvg({
               fontSize={size(9)}
               textAnchor="middle"
               x={x}
-              y={height - MARGIN.bottom + 20}
+              y={height - bottom + xTickOffset}
             >
               {formatX(tick)}
             </text>
@@ -523,9 +536,9 @@ export function ParetoSvg({
           // The panel keeps the plot's own size, so it does not move as the viewer resizes text.
           fontSize={10 * (textScale ?? 1)}
           onOpenChange={(open) => onSettingsOpenChange?.(open)}
-          onStepChange={(step) => onTextStepChange?.(step)}
+          onSizeChange={(size) => onTextSizeChange?.(size)}
           open={settingsOpen}
-          step={textStep}
+          size={textSize}
           width={width}
         />
       ) : null}

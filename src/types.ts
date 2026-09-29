@@ -87,7 +87,8 @@ export type ParetoPlotProps = {
   showGroups?: boolean;
   /**
    * In interactive mode, a quiet settings button in the top right corner opens a panel where
-   * the viewer can make the text smaller or larger. Defaults to false.
+   * the viewer can set the text size, from 50 to 200 percent: typed, or in 10 percent steps.
+   * Defaults to false.
    */
   showSettings?: boolean;
   /**

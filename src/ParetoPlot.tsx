@@ -9,7 +9,7 @@ export function ParetoPlot(props: ParetoPlotProps) {
   const [hoveredGroup, setHoveredGroup] = useState<string | null>(null);
   const [pinnedGroup, setPinnedGroup] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [textStep, setTextStep] = useState(0);
+  const [textSize, setTextSize] = useState(100);
   return (
     <ParetoSvg
       {...props}
@@ -22,9 +22,9 @@ export function ParetoPlot(props: ParetoPlotProps) {
       onHoveredGroupChange={setHoveredGroup}
       onPinnedGroupChange={setPinnedGroup}
       settingsOpen={settingsOpen}
-      textStep={textStep}
+      textSize={textSize}
       onSettingsOpenChange={setSettingsOpen}
-      onTextStepChange={setTextStep}
+      onTextSizeChange={setTextSize}
     />
   );
 }

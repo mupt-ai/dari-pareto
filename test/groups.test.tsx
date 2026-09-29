@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 import { groupsOf, layoutGroups } from "../src/Groups";
 import { ParetoSvg } from "../src/ParetoSvg";
+import { parseTextSize, stepTextSize } from "../src/Settings";
 import { renderParetoPlot } from "../src/static";
 
 const points = [
@@ -54,15 +55,32 @@ describe("settings", () => {
     expect(closed).not.toContain("Text Size");
     const open = renderToStaticMarkup(ParetoSvg({ ...props, showSettings: true, settingsOpen: true }));
     expect(open).toContain("Text Size");
-    expect(open).toContain(">100%<");
+    expect(open).toContain('value="100"');
     expect(renderParetoPlot({ ...props, showSettings: true })).not.toContain("Plot Settings");
   });
 
-  test("scales the text by the viewer's step, and stops at the ends", () => {
-    const larger = renderToStaticMarkup(
-      ParetoSvg({ ...props, showSettings: true, settingsOpen: true, textStep: 4 }),
+  test("stops at the ends of the range", () => {
+    const largest = renderToStaticMarkup(
+      ParetoSvg({ ...props, showSettings: true, settingsOpen: true, textSize: 200 }),
     );
-    expect(larger).toContain(">175%<");
-    expect(larger).toContain('aria-label="Larger Text" class="pareto-settings-step disabled"');
+    expect(largest).toContain('aria-label="Larger Text" class="pareto-settings-step disabled"');
+    expect(largest).not.toContain('aria-label="Smaller Text" class="pareto-settings-step disabled"');
+  });
+
+  test("steps to the next multiple of ten, from any size", () => {
+    expect(stepTextSize(100, 1)).toBe(110);
+    expect(stepTextSize(73, 1)).toBe(80);
+    expect(stepTextSize(73, -1)).toBe(70);
+    expect(stepTextSize(70, -1)).toBe(60);
+    expect(stepTextSize(195, 1)).toBe(200);
+    expect(stepTextSize(50, -1)).toBe(50);
+  });
+
+  test("takes typed sizes, kept in range, and ignores what is not a number", () => {
+    expect(parseTextSize("120", 100)).toBe(120);
+    expect(parseTextSize(" 73.4% ", 100)).toBe(73);
+    expect(parseTextSize("999", 100)).toBe(200);
+    expect(parseTextSize("5", 100)).toBe(50);
+    expect(parseTextSize("big", 90)).toBe(90);
   });
 });

@@ -138,8 +138,10 @@ as before.
   point and label outside its group; a click or tap holds the highlight until
   the chip is pressed again. Static plots show the chips as a key.
 - **Settings.** `showSettings: true` adds a quiet button in the top right corner
-  of an interactive plot. It opens a small panel where the viewer can make the
-  plot's text smaller or larger, in 15 percent steps.
+  of an interactive plot. It opens a small panel where the viewer sets the text
+  size from 50 to 200 percent: typed (kept in range, to a whole percent, applied
+  on Enter or on leaving the field), or with smaller and larger buttons that move
+  to the next multiple of 10. Larger text also grows the space around the axes.
 - **Label placement.** `labelPlacement: "auto"` places each label from
   `showPointLabels` above, beside, below or diagonally off its point, wherever it
   covers no point and no other label, preferring spots off the frontier line.
