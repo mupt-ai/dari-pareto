@@ -57,8 +57,8 @@ const pointHighlight = `
 
 const chartStyles = `
   .pareto-point { cursor: pointer; outline: none; }
-  .pareto-point circle { stroke: var(--pareto-background, #09100f); stroke-width: 2; transition: .2s; }
-  .pareto-point-label { opacity: 0; pointer-events: none; transition: .2s; }
+  .pareto-point circle { stroke: var(--pareto-background, #09100f); stroke-width: 2; transition: r .2s, fill .2s, stroke .2s, filter .2s; }
+  .pareto-point-label { opacity: 0; pointer-events: none; transition: opacity .2s; }
   .pareto-point-label.visible { opacity: 1; }
   .pareto-point:focus circle, .pareto-point.selected circle {${pointHighlight}  }
   .pareto-point:focus .pareto-point-label, .pareto-point.selected .pareto-point-label { opacity: 1; }

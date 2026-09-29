@@ -195,6 +195,15 @@ describe("ParetoPlot options", () => {
 });
 
 describe("ParetoPlot layering and settings", () => {
+  test("points never slide when the plot is redrawn at another size", () => {
+    // In SVG a circle's cx and cy are CSS properties, so a blanket transition would animate a
+    // point to its new place while the axes jump there, leaving it outside the plot meanwhile.
+    const style = renderToStaticMarkup(ParetoSvg(props)).match(/\.pareto-point circle \{[^}]*\}/)?.[0] ?? "";
+    expect(style).toContain("transition: r .2s, fill .2s, stroke .2s, filter .2s;");
+    expect(style).not.toMatch(/transition: [^;]*\b(cx|cy|all)\b/);
+    expect(style).not.toMatch(/transition: \.2s/);
+  });
+
   const grouped = props.points.map((point) => ({ ...point, group: point.id === "large" ? "Top" : "Rest" }));
 
   test("paints the hover card over the group chips, which it can reach beside a top point", () => {
