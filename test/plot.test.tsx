@@ -102,8 +102,27 @@ describe("ParetoPlot options", () => {
     expect(markup).not.toContain("--pareto-point-color");
     expect(markup).not.toContain("pareto-group");
     expect(markup).not.toContain("pareto-settings");
+    expect(markup).not.toContain("pareto-tick-mark");
     expect(markup).toContain('font-weight="700"');
     expect(markup).toContain("Selected");
+  });
+
+  test("marks each tick outside the plot's edge on the axes that ask for it", () => {
+    const markup = renderParetoPlot({
+      ...props,
+      xAxis: { ...props.xAxis, nice: true, ticks: 4, tickMarks: true },
+    });
+    const attribute = (tag: string, name: string) => Number(tag.match(new RegExp(` ${name}="([^"]+)"`))?.[1]);
+    const marks = [...markup.matchAll(/<line class="pareto-tick-mark"[^>]*>/g)].map((match) => match[0]);
+    const tickLabels = [...markup.matchAll(/<text[^>]*font-size="9" text-anchor="middle"[^>]*>/g)].map((match) => match[0]);
+
+    // One vertical mark per x tick label, at its x, hanging 5px below the plot; none on y.
+    expect(marks.length).toBeGreaterThan(1);
+    expect(marks.map((mark) => attribute(mark, "x1"))).toEqual(tickLabels.map((label) => attribute(label, "x")));
+    for (const mark of marks) {
+      expect(attribute(mark, "x2")).toBe(attribute(mark, "x1"));
+      expect(attribute(mark, "y2") - attribute(mark, "y1")).toBe(5);
+    }
   });
 
   test("colors points: Pareto-efficient ones filled, dominated ones ringed", () => {

@@ -57,6 +57,11 @@ export type AxisOptions = {
    * does not apply to it.
    */
   scale?: "linear" | "log";
+  /**
+   * Draws a short mark at each tick, just outside the plot's edge, between the plot and the
+   * tick labels. Defaults to false.
+   */
+  tickMarks?: boolean;
 };
 
 export type ParetoPlotMode = "static" | "interactive";

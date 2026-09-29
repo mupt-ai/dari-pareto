@@ -21,6 +21,8 @@ const SETTINGS_ROOM = 28;
 const Y_TITLE_X = 16;
 /** Space kept between the y-axis title, the tick labels and the plot in a fitted margin. */
 const Y_AXIS_GAP = 10;
+/** Length of a tick mark outside the plot's edge; see `AxisOptions.tickMarks`. */
+const TICK_MARK = 5;
 /**
  * A colored dominated point is a ring. Its colored stroke reaches past its radius while a
  * filled point's background halo covers part of its own, so the ring is drawn smaller to keep
@@ -428,6 +430,17 @@ export function ParetoSvg({
                 y1={y}
                 y2={y}
               />
+              {yAxis.tickMarks ? (
+                <line
+                  className="pareto-tick-mark"
+                  stroke="var(--pareto-muted, #91a39b)"
+                  strokeWidth="1"
+                  x1={left - TICK_MARK}
+                  x2={left}
+                  y1={y}
+                  y2={y}
+                />
+              ) : null}
               <text
                 dominantBaseline="middle"
                 fill="var(--pareto-muted, #91a39b)"
@@ -443,7 +456,7 @@ export function ParetoSvg({
         })}
         {xTicks.map((tick) => {
           const x = scaleX(tick);
-          return (
+          const label = (
             <text
               key={`x-${tick}`}
               fill="var(--pareto-muted, #91a39b)"
@@ -454,6 +467,21 @@ export function ParetoSvg({
             >
               {formatX(tick)}
             </text>
+          );
+          if (!xAxis.tickMarks) return label;
+          return (
+            <g key={`x-${tick}`}>
+              <line
+                className="pareto-tick-mark"
+                stroke="var(--pareto-muted, #91a39b)"
+                strokeWidth="1"
+                x1={x}
+                x2={x}
+                y1={height - bottom}
+                y2={height - bottom + TICK_MARK}
+              />
+              {label}
+            </g>
           );
         })}
       </g>

@@ -128,6 +128,8 @@ as before.
   domain out to match. Values at or below zero, which a log scale cannot place,
   sit on a zero tick at the axis start in a short band of their own; the tooltip
   still shows their real value. `includeZero` does not apply.
+- **Tick marks.** `tickMarks: true` on an axis draws a short mark at each tick,
+  just outside the plot's edge, between the plot and the tick labels.
 - **Hover radius.** `hoverRadius: 36` makes the pointer inspect the nearest point
   within that many pixels instead of only the one directly under it. On touch
   screens a tap does the same, a tap away from every point puts the card away,
