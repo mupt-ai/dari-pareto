@@ -186,7 +186,10 @@ as before.
 - **Tooltip.** `showTooltip: true` shows a card with the hovered or focused
   point's label, both axis values and its `description`, in place of its label,
   and dims the other labels. It sits beside the point, or above or below it on a
-  plot too narrow for that. Interactive mode only.
+  plot too narrow for that. A point drawn selected through `selectedId` dims
+  the other labels too, and its label is drawn over any it runs into, so a point
+  a page lights up from elsewhere, such as a table row, reads as clearly as one
+  under the pointer. Interactive mode only.
 - **Title and text size.** `showTitle: false` hides the title; with
   `showLegend: false` as well, the plot drops the space kept above it for them.
   `textScale` multiplies every text size and fits the left margin to the y-axis

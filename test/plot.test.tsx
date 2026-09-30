@@ -168,6 +168,25 @@ describe("ParetoPlot options", () => {
     expect(renderParetoPlot({ ...props, showTooltip: true })).not.toContain("pareto-tooltip");
   });
 
+  test("with the tooltip, dims the other labels for a selected point and draws its label on top", () => {
+    const selected = (extra: Partial<ParetoPlotProps> = {}) =>
+      renderToStaticMarkup(ParetoSvg({ ...props, showPointLabels: "all", selectedId: "small", ...extra }));
+    const labels = (markup: string) =>
+      [...markup.matchAll(/<text class="pareto-point-label ([^"]*)"[^>]*>([^<]+)</g)].map((match) => ({
+        label: match[2],
+        dimmed: match[1].includes("dimmed"),
+      }));
+
+    expect(labels(selected({ showTooltip: true }))).toEqual([
+      { label: "Large", dimmed: true },
+      { label: "Weak", dimmed: true },
+      { label: "Small", dimmed: false },
+    ]);
+    // Without the tooltip, or with an id no point has, nothing steps back.
+    expect(labels(selected()).some((label) => label.dimmed)).toBe(false);
+    expect(labels(selected({ showTooltip: true, selectedId: "missing" })).some((label) => label.dimmed)).toBe(false);
+  });
+
   test("can hide the title and scale text", () => {
     const markup = renderParetoPlot({ ...props, showTitle: false, showLegend: false, textScale: 2 });
 

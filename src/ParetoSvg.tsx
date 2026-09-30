@@ -374,6 +374,13 @@ export function ParetoSvg({
   };
   const tooltipPoint =
     showTooltip && interactive ? points.find((point) => point.id === activeId) : undefined;
+  // With the tooltip, a point the page selects stands out as an inspected one does: the other
+  // labels step back, and its own is drawn over them.
+  const chosen = points.some((point) => point.id === selectedId) ? selectedId : null;
+  const dimming = showTooltip && interactive && (tooltipPoint !== undefined || chosen !== null);
+  const lit = (point: ParetoPoint) => point.id === selectedId || point.id === activeId;
+  // Lit labels last, so they sit over any label they run into.
+  const labelOrder = [...points.filter((point) => !lit(point)), ...points.filter(lit)];
 
   return (
     <svg
@@ -624,16 +631,16 @@ export function ParetoSvg({
       </g>
 
       <g aria-hidden="true">
-        {points.map((point) => {
+        {labelOrder.map((point) => {
           // The tooltip carries the hovered point's label.
           if (point.id === tooltipPoint?.id) return null;
-          const selected = point.id === selectedId || point.id === activeId;
+          const selected = lit(point);
           const spot = placed?.get(point.id);
           const resting = placed ? spot !== undefined : labelled(point);
           if (!resting && !selected) return null;
           return (
             <text
-              className={`pareto-point-label visible${tooltipPoint ? " dimmed" : ""}${faded(point) ? " faded" : ""}`}
+              className={`pareto-point-label visible${dimming && point.id !== chosen ? " dimmed" : ""}${faded(point) ? " faded" : ""}`}
               fill="var(--pareto-foreground, #eef4ed)"
               fontSize={labelSize}
               key={point.id}
