@@ -7,6 +7,11 @@ export type ParetoPoint = {
   label: string;
   x: number;
   y: number;
+  /**
+   * A short qualifier drawn faint after the label, in parentheses, such as a model's reasoning
+   * level: "GPT-5 (high)".
+   */
+  note?: string;
   description?: string;
   /**
    * Any CSS color. Draws this point in its own color instead of the theme's: filled when
@@ -54,7 +59,7 @@ export type AxisOptions = {
    * "linear" (the default) or "log". A log axis suits values spanning orders of magnitude,
    * such as prices: equal distances are equal ratios. Its ticks fall on round values within
    * each decade, and values at or below zero sit on a zero tick at the axis start. `includeZero`
-   * does not apply to it.
+   * does not apply to it. The axis title says it is a log scale.
    */
   scale?: "linear" | "log";
   /**
@@ -105,6 +110,18 @@ export type ParetoPlotProps = {
    * values and its description, in place of its label. Defaults to false.
    */
   showTooltip?: boolean;
+  /**
+   * How the tooltip looks. "card" (the default) is a card with the label, both axis values and
+   * the description, one per line. "label" is a smaller box with the label, its note faint
+   * after it, over its values on one line ("70.2% at $1.36"); a point the page selects shows
+   * the same while none is inspected.
+   */
+  tooltipStyle?: "card" | "label";
+  /**
+   * Text drawn along the frontier line's longest segment, such as "PARETO FRONTIER". Left out
+   * when no segment is long enough to hold it.
+   */
+  frontierLabel?: string;
   /**
    * In interactive mode, the pointer inspects the nearest point within this many pixels
    * instead of only the point directly under it; a tap does the same, and a tap away from

@@ -129,7 +129,8 @@ as before.
   linear step when the data spans only part of a decade, and `nice` rounds the
   domain out to match. Values at or below zero, which a log scale cannot place,
   sit on a zero tick at the axis start in a short band of their own; the tooltip
-  still shows their real value. `includeZero` does not apply.
+  still shows their real value. `includeZero` does not apply. The axis title
+  says "(LOG SCALE)" after the label.
 - **Tick marks.** `tickMarks: true` on an axis draws a short mark at each tick,
   just outside the plot's edge, between the plot and the tick labels.
 - **Hover radius.** `hoverRadius: 36` makes the pointer inspect the nearest point
@@ -190,6 +191,15 @@ as before.
   the other labels too, and its label is drawn over any it runs into, so a point
   a page lights up from elsewhere, such as a table row, reads as clearly as one
   under the pointer. Interactive mode only.
+- **Label-style tooltip.** `tooltipStyle: "label"` draws a smaller card beside
+  the point: its label, with its `note` faint in parentheses (`GPT-5 (high)`),
+  over its values on one line (`70.2% at $1.36`). A point the page selects with
+  `selectedId` shows the same while none is inspected. Combine it with
+  `showPointLabels: "none"` for a plot that names a point only when it is
+  pointed at.
+- **Frontier label.** `frontierLabel: "PARETO FRONTIER"` writes that text along
+  the frontier line's longest segment that is long enough to hold it and no
+  steeper than 50°. It is left out when no segment qualifies.
 - **Title and text size.** `showTitle: false` hides the title; with
   `showLegend: false` as well, the plot drops the space kept above it for them.
   `textScale` multiplies every text size and fits the left margin to the y-axis
@@ -217,6 +227,9 @@ Override CSS variables on the plot or a parent element:
   --pareto-frontier-line: #8ee6bd; /* (--pareto-frontier) */
   --pareto-glow: rgba(142, 230, 189, 0.7); /* (this mint, or a colored point's own color) */
   --pareto-tooltip-background: #09100f; /* (--pareto-background) */
+  --pareto-label-font-family: "Manrope", sans-serif; /* point names and the title (--pareto-font-family) */
+  --pareto-frontier-dash: none; /* the frontier line's dashes, or none for solid (4 5) */
+  --pareto-frontier-width: 2px; /* (1.5px) */
 }
 ```
 

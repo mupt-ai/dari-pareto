@@ -3,7 +3,7 @@ import { Children, isValidElement, type ReactElement, type ReactNode } from "rea
 import { renderToStaticMarkup } from "react-dom/server";
 
 import { ParetoPlot, type ParetoPlotProps } from "../src";
-import { ParetoSvg } from "../src/ParetoSvg";
+import { frontierLabelSpot, ParetoSvg, spacedTicks } from "../src/ParetoSvg";
 import { renderParetoPlot } from "../src/static";
 
 function elementsWithRole(node: ReactNode, role: string): ReactElement<Record<string, unknown>>[] {
@@ -125,6 +125,34 @@ describe("ParetoPlot options", () => {
     }
   });
 
+  test("says so in an axis's title when the axis is a log scale", () => {
+    const log = renderParetoPlot({ ...props, xAxis: { ...props.xAxis, scale: "log" } });
+    expect(log).toContain(">COST / TASK (LOG SCALE) →<");
+    expect(log).toContain(">SCORE<");
+    expect(renderParetoPlot(props)).toContain(">COST / TASK →<");
+  });
+
+  test("leaves out x ticks whose labels would run into the one before", () => {
+    const at = (tick: number) => tick * 10;
+    // Labels 30 wide: 0 and 10 collide, 40 clears 0 by 10 (the gap), 45 collides with 40.
+    expect(spacedTicks([0, 1, 4, 4.5, 8], at, () => 30, 10)).toEqual([0, 4, 8]);
+
+    const crowded = renderParetoPlot({
+      ...props,
+      width: 320,
+      points: [
+        { id: "a", label: "A", x: 0.001, y: 50 },
+        { id: "b", label: "B", x: 100, y: 90 },
+      ],
+      xAxis: { ...props.xAxis, scale: "log", nice: true, ticks: 10, format: (value) => `$${value.toFixed(3)}` },
+    });
+    const xs = [...crowded.matchAll(/<text[^>]*font-size="9" text-anchor="middle" x="([\d.]+)"/g)].map((match) =>
+      Number(match[1]),
+    );
+    expect(xs.length).toBeGreaterThan(1);
+    for (let index = 1; index < xs.length; index += 1) expect(xs[index] - xs[index - 1]).toBeGreaterThan(9 * 0.62 * 8);
+  });
+
   test("colors points: Pareto-efficient ones filled, dominated ones ringed", () => {
     const markup = renderParetoPlot({
       ...props,
@@ -185,6 +213,80 @@ describe("ParetoPlot options", () => {
     // Without the tooltip, or with an id no point has, nothing steps back.
     expect(labels(selected()).some((label) => label.dimmed)).toBe(false);
     expect(labels(selected({ showTooltip: true, selectedId: "missing" })).some((label) => label.dimmed)).toBe(false);
+  });
+
+  test("a label-style tooltip gives the point's label, note and values beside it", () => {
+    const noted = props.points.map((point) => (point.id === "large" ? { ...point, note: "high" } : point));
+    const markup = hovered({
+      points: noted,
+      showPointLabels: "none",
+      showTooltip: true,
+      tooltipStyle: "label",
+      xAxis: { ...props.xAxis, format: (value) => `$${value.toFixed(2)}` },
+      yAxis: { ...props.yAxis, format: (value) => `${value}%` },
+    });
+
+    expect(markup).toContain('class="pareto-tooltip"');
+    expect(markup).toMatch(/>Large<tspan[^>]*> \(high\)<\/tspan>/);
+    expect(markup).toContain(">90% at $0.03<");
+    // Screen readers hear the note with the label.
+    expect(markup).toContain('aria-label="Large (high). Cost / Task');
+  });
+
+  test("an interactive plot has no title element to pop up the browser's tooltip over its own", () => {
+    expect(renderToStaticMarkup(<ParetoPlot {...props} />)).not.toContain("<title>");
+    expect(renderToStaticMarkup(<ParetoPlot {...props} />)).toContain('aria-label="Model Comparison"');
+    expect(renderParetoPlot(props)).toContain("<title>Model Comparison</title>");
+  });
+
+  test("a label-style tooltip too wide to sit beside its point goes above it", () => {
+    const markup = renderToStaticMarkup(
+      ParetoSvg({
+        ...props,
+        width: 320,
+        points: [{ id: "wide", label: "A model with a very long name", note: "xhigh", x: 0.02, y: 60 }],
+        xAxis: { ...props.xAxis, domain: [0, 0.04] },
+        showTooltip: true,
+        tooltipStyle: "label",
+        hoveredId: "wide",
+      }),
+    );
+    const box = markup.match(/class="pareto-tooltip"[^>]*><rect fill="[^"]*" height="([\d.]+)"[^>]* y="([\d.]+)"/);
+    const pointY = Number(markup.match(/class="pareto-point[^"]*"[^>]*><circle cx="[\d.]+" cy="([\d.]+)"/)?.[1]);
+    expect(box).not.toBeNull();
+    expect(Number(box?.[2]) + Number(box?.[1])).toBeLessThan(pointY);
+  });
+
+  test("a label-style tooltip shows for the page's selected point while none is inspected", () => {
+    const selected = (extra: Partial<Parameters<typeof ParetoSvg>[0]>) =>
+      renderToStaticMarkup(
+        ParetoSvg({ ...props, showTooltip: true, tooltipStyle: "label", selectedId: "small", ...extra }),
+      );
+
+    expect(selected({})).toContain(">70 at 0.01<");
+    expect(selected({ hoveredId: "large" })).toContain(">90 at 0.03<");
+    expect(selected({ hoveredId: "large" })).not.toContain(">70 at 0.01<");
+    // The card keeps to the inspected point.
+    expect(selected({ tooltipStyle: "card" })).not.toContain("pareto-tooltip");
+  });
+
+  test("labels the frontier along its longest segment that has room and is not too steep", () => {
+    const line = [
+      { x: 0, y: 300 },
+      { x: 10, y: 100 },
+      { x: 400, y: 40 },
+    ];
+    const spot = frontierLabelSpot(line, 120);
+    expect(spot?.x).toBe(205);
+    expect(spot?.y).toBe(70);
+    expect(spot?.angle).toBeCloseTo((Math.atan2(-60, 390) * 180) / Math.PI);
+    // The steep first segment never carries it, and no segment is long enough for this one.
+    expect(frontierLabelSpot(line.slice(0, 2), 50)).toBeNull();
+    expect(frontierLabelSpot(line, 500)).toBeNull();
+
+    const markup = renderParetoPlot({ ...props, frontierLabel: "PARETO FRONTIER" });
+    expect(markup).toContain(">PARETO FRONTIER<");
+    expect(renderParetoPlot(props)).not.toContain("pareto-frontier-label");
   });
 
   test("can hide the title and scale text", () => {

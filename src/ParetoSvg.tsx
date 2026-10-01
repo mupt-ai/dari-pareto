@@ -7,7 +7,7 @@ import { GroupLegend, groupsOf, inChip, layoutGroups, parseChipKey } from "./Gro
 import { CHARACTER_WIDTH, placeLabels } from "./labels.js";
 import { nearestWithin } from "./pointer.js";
 import { type LabelChoice, SETTINGS_BUTTON, Settings } from "./Settings.js";
-import { Tooltip } from "./Tooltip.js";
+import { LabelTooltip, labelText, Tooltip } from "./Tooltip.js";
 import type { AxisOptions, ParetoPlotProps, ParetoPoint } from "./types.js";
 
 export const DEFAULT_WIDTH = 620;
@@ -118,6 +118,58 @@ ${onHover(`
   .pareto-settings-field:focus { border-color: var(--pareto-muted, #91a39b); }
 `;
 
+/** The frontier label's letter spacing, in ems. */
+const FRONTIER_LABEL_SPACING = 0.18;
+/** The steepest frontier segment the label runs along, in degrees: steeper reads sideways. */
+const FRONTIER_LABEL_SLOPE = 50;
+
+/**
+ * Where the frontier's label goes: the middle of the line's longest segment that is at least
+ * `length` long and no steeper than `FRONTIER_LABEL_SLOPE`, with the segment's angle. Null when
+ * no segment qualifies.
+ */
+export function frontierLabelSpot(
+  line: readonly { x: number; y: number }[],
+  length: number,
+): { x: number; y: number; angle: number } | null {
+  let best: { x: number; y: number; angle: number; length: number } | null = null;
+  for (let index = 1; index < line.length; index += 1) {
+    const [from, to] = [line[index - 1], line[index]].sort((left, right) => left.x - right.x);
+    const segment = Math.hypot(to.x - from.x, to.y - from.y);
+    const angle = (Math.atan2(to.y - from.y, to.x - from.x) * 180) / Math.PI;
+    if (segment < length || Math.abs(angle) > FRONTIER_LABEL_SLOPE || (best && best.length >= segment)) continue;
+    best = { x: (from.x + to.x) / 2, y: (from.y + to.y) / 2, angle, length: segment };
+  }
+  return best && { x: best.x, y: best.y, angle: best.angle };
+}
+
+/**
+ * The ticks whose labels fit side by side: from the left, each tick whose label, `width(tick)`
+ * wide and centered on `at(tick)`, clears the last kept one's by `gap`. Crowded ticks, as many
+ * decades on a narrow log axis give, are left out, labels and marks alike.
+ */
+export function spacedTicks(
+  ticks: readonly number[],
+  at: (tick: number) => number,
+  width: (tick: number) => number,
+  gap: number,
+): number[] {
+  const kept: number[] = [];
+  let lastEnd = Number.NEGATIVE_INFINITY;
+  for (const tick of ticks) {
+    const start = at(tick) - width(tick) / 2;
+    if (start < lastEnd + gap) continue;
+    kept.push(tick);
+    lastEnd = at(tick) + width(tick) / 2;
+  }
+  return kept;
+}
+
+/** An axis's title as drawn: its label in capitals, saying so when the axis is a log scale. */
+function axisTitle(axis: AxisOptions): string {
+  return `${axis.label.toUpperCase()}${axis.scale === "log" ? " (LOG SCALE)" : ""}`;
+}
+
 function defaultFormat(value: number): string {
   return new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(value);
 }
@@ -131,7 +183,7 @@ function pointDescription(
   const formatX = xAxis.format ?? defaultFormat;
   const formatY = yAxis.format ?? defaultFormat;
   const values = `${xAxis.label}: ${formatX(point.x)}; ${yAxis.label}: ${formatY(point.y)}`;
-  return [point.label, values, efficient ? "Pareto-efficient" : "Dominated", point.description]
+  return [labelText(point), values, efficient ? "Pareto-efficient" : "Dominated", point.description]
     .filter(Boolean)
     .join(". ");
 }
@@ -186,6 +238,8 @@ export function ParetoSvg({
   labelPlacement = "above",
   showTitle = true,
   showTooltip = false,
+  tooltipStyle = "card",
+  frontierLabel,
   textScale,
   hoverRadius,
   palette,
@@ -291,6 +345,14 @@ export function ParetoSvg({
   const plotHeight = Math.max(1, height - top - bottom);
   const scaleX = (value: number) => left + xAt(value) * plotWidth;
   const scaleY = (value: number) => top + plotHeight - yAt(value) * plotHeight;
+  const frontierLabelSize = size(8);
+  const frontierSpot = frontierLabel
+    ? frontierLabelSpot(
+        frontier.map((point) => ({ x: scaleX(point.x), y: scaleY(point.y) })),
+        // The label's width, with room at both ends so it clears the points.
+        frontierLabel.length * frontierLabelSize * (CHARACTER_WIDTH + FRONTIER_LABEL_SPACING) + frontierLabelSize * 4,
+      )
+    : null;
   const colored = points.some((point) => colorOf.get(point.id));
   const highlighted = groups.length > 0 ? (hoveredGroup ?? pinnedGroup) : null;
   const faded = (point: ParetoPoint) => highlighted !== null && !inChip(point, highlighted);
@@ -339,7 +401,7 @@ export function ParetoSvg({
             placing
               .filter(labelled)
               .sort((left, right) => Number(frontierIds.has(right.id)) - Number(frontierIds.has(left.id)))
-              .map((point) => ({ id: point.id, x: scaleX(point.x), y: scaleY(point.y), text: point.label })),
+              .map((point) => ({ id: point.id, x: scaleX(point.x), y: scaleY(point.y), text: labelText(point) })),
             {
               markers: placing.map((point) => ({ x: scaleX(point.x), y: scaleY(point.y), radius: 5 })),
               lines: [frontier.map((point) => ({ x: scaleX(point.x), y: scaleY(point.y) }))],
@@ -372,11 +434,27 @@ export function ParetoSvg({
     delete event.currentTarget.dataset.dismissing;
     event.stopPropagation();
   };
+  const chosen = points.some((point) => point.id === selectedId) ? selectedId : null;
+  const labelStyle = tooltipStyle === "label";
+  // A label-style tooltip also shows for the point the page selects, while none is inspected.
   const tooltipPoint =
-    showTooltip && interactive ? points.find((point) => point.id === activeId) : undefined;
+    showTooltip && interactive
+      ? points.find((point) => point.id === (activeId ?? (labelStyle ? chosen : null)))
+      : undefined;
+  const labelTooltip =
+    tooltipPoint && labelStyle
+      ? {
+          fontSize: size(10),
+          height,
+          point: tooltipPoint,
+          value: `${formatY(tooltipPoint.y)} at ${formatX(tooltipPoint.x)}`,
+          width,
+          x: scaleX(tooltipPoint.x),
+          y: scaleY(tooltipPoint.y),
+        }
+      : null;
   // With the tooltip, a point the page selects stands out as an inspected one does: the other
   // labels step back, and its own is drawn over them.
-  const chosen = points.some((point) => point.id === selectedId) ? selectedId : null;
   const dimming = showTooltip && interactive && (tooltipPoint !== undefined || chosen !== null);
   const lit = (point: ParetoPoint) => point.id === selectedId || point.id === activeId;
   // Lit labels last, so they sit over any label they run into.
@@ -451,12 +529,15 @@ export function ParetoSvg({
           (groups.length > 0 ? groupStyles : "") +
           (settings ? settingsStyles : "")}
       </style>
-      <title>{title}</title>
+      {/* An interactive plot is named by its aria-label: a title would pop up the browser's own
+          tooltip over the plot's. */}
+      {interactive ? null : <title>{title}</title>}
       <desc>{fullDescription}</desc>
 
       {showTitle ? (
         <text
           fill="currentColor"
+          fontFamily="var(--pareto-label-font-family, inherit)"
           fontSize={size(14)}
           fontWeight="700"
           letterSpacing="0.04em"
@@ -538,7 +619,7 @@ export function ParetoSvg({
             </g>
           );
         })}
-        {xTicks.map((tick) => {
+        {spacedTicks(xTicks, scaleX, (tick) => formatX(tick).length * size(9) * CHARACTER_WIDTH, size(9)).map((tick) => {
           const x = scaleX(tick);
           const label = (
             <text
@@ -577,10 +658,27 @@ export function ParetoSvg({
           points={frontier.map((point) => `${scaleX(point.x)},${scaleY(point.y)}`).join(" ")}
           stroke="var(--pareto-frontier-line, var(--pareto-frontier, #8ee6bd))"
           opacity="0.7"
-          strokeDasharray="4 5"
-          strokeWidth="1.5"
+          style={{
+            strokeDasharray: "var(--pareto-frontier-dash, 4 5)",
+            strokeWidth: "var(--pareto-frontier-width, 1.5px)",
+          }}
           vectorEffect="non-scaling-stroke"
         />
+      ) : null}
+      {frontierSpot ? (
+        <text
+          aria-hidden="true"
+          className="pareto-frontier-label"
+          fill="var(--pareto-frontier-line, var(--pareto-frontier, #8ee6bd))"
+          fontSize={frontierLabelSize}
+          letterSpacing={`${FRONTIER_LABEL_SPACING}em`}
+          textAnchor="middle"
+          transform={`rotate(${frontierSpot.angle} ${frontierSpot.x} ${frontierSpot.y})`}
+          x={frontierSpot.x}
+          y={frontierSpot.y - frontierLabelSize * 0.7}
+        >
+          {frontierLabel}
+        </text>
       ) : null}
 
       <g>
@@ -609,7 +707,7 @@ export function ParetoSvg({
                 cx={scaleX(point.x)}
                 cy={scaleY(point.y)}
                 fill={color ? ownFill : themeFill}
-                r={selected ? 8 : color && !efficient ? RING_RADIUS : 5}
+                r={selected ? (labelStyle ? 6 : 8) : color && !efficient ? RING_RADIUS : 5}
               >
                 {!interactive ? <title>{pointDescription(point, xAxis, yAxis, efficient)}</title> : null}
               </circle>
@@ -647,11 +745,12 @@ export function ParetoSvg({
               paintOrder="stroke"
               stroke="var(--pareto-background, #09100f)"
               strokeWidth="4"
+              fontFamily="var(--pareto-label-font-family, inherit)"
               textAnchor={spot?.anchor ?? "middle"}
               x={spot?.x ?? scaleX(point.x)}
               y={spot?.y ?? scaleY(point.y) - size(selected ? 13 : 11)}
             >
-              {point.label}
+              {labelText(point)}
             </text>
           );
         })}
@@ -671,7 +770,8 @@ export function ParetoSvg({
       ) : null}
 
       {/* After the chips, which a card beside a point near the top can reach. */}
-      {tooltipPoint ? (
+      {labelTooltip ? <LabelTooltip {...labelTooltip} /> : null}
+      {tooltipPoint && !labelStyle ? (
         <Tooltip
           fontSize={size(10)}
           height={height}
@@ -722,7 +822,7 @@ export function ParetoSvg({
         x={width - 4}
         y={height - 8}
       >
-        {xAxis.label.toUpperCase()} →
+        {axisTitle(xAxis)} →
       </text>
       <text
         fill="var(--pareto-muted, #91a39b)"
@@ -733,7 +833,7 @@ export function ParetoSvg({
         x={yTitleX}
         y={top + plotHeight / 2}
       >
-        {yAxis.label.toUpperCase()}
+        {axisTitle(yAxis)}
       </text>
     </svg>
   );
