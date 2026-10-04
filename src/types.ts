@@ -13,6 +13,8 @@ export type ParetoPoint = {
    */
   note?: string;
   description?: string;
+  /** A lower and upper bound for this point's y value, drawn as a vertical error bar. */
+  yInterval?: readonly [number, number];
   /**
    * Any CSS color. Draws this point in its own color instead of the theme's: filled when
    * Pareto-efficient, a ring when dominated.

@@ -87,8 +87,8 @@ const tooltipStyles = `
 
 /** Only with group chips: highlighting a group fades the rest. */
 const groupStyles = `
-  .pareto-point, .pareto-point-label { transition: opacity .15s; }
-  .pareto-point.faded, .pareto-point-label.visible.faded { opacity: .15; }
+  .pareto-point, .pareto-point-label, .pareto-error-bar { transition: opacity .15s; }
+  .pareto-point.faded, .pareto-point-label.visible.faded, .pareto-error-bar.faded { opacity: .15; }
   .pareto-group { cursor: pointer; outline: none; }
   .pareto-group text, .pareto-group circle { transition: opacity .15s; }
   .pareto-group.muted text, .pareto-group.muted circle { opacity: .4; }
@@ -293,7 +293,7 @@ export function ParetoSvg({
     xAxis,
   );
   const { ticks: yTicks, position: yAt } = axisScale(
-    points.map((point) => point.y),
+    points.flatMap((point) => point.yInterval ?? [point.y]),
     yAxis,
   );
   const formatX = xAxis.format ?? defaultFormat;
@@ -648,6 +648,52 @@ export function ParetoSvg({
               {label}
             </g>
           );
+        })}
+      </g>
+
+      <g aria-hidden="true" className="pareto-error-bars">
+        {points.flatMap((point) => {
+          if (!point.yInterval) return [];
+          const [lower, upper] = point.yInterval;
+          const x = scaleX(point.x);
+          const lowY = scaleY(lower);
+          const highY = scaleY(upper);
+          const color = colorOf.get(point.id);
+          const stroke = color ?? "var(--pareto-muted, #91a39b)";
+          return [
+            <g className={`pareto-error-bar${faded(point) ? " faded" : ""}`} key={`interval-${point.id}`}>
+              <line
+                stroke={stroke}
+                strokeOpacity="0.8"
+                strokeWidth="1.5"
+                vectorEffect="non-scaling-stroke"
+                x1={x}
+                x2={x}
+                y1={highY}
+                y2={lowY}
+              />
+              <line
+                stroke={stroke}
+                strokeOpacity="0.8"
+                strokeWidth="1.5"
+                vectorEffect="non-scaling-stroke"
+                x1={x - 4}
+                x2={x + 4}
+                y1={highY}
+                y2={highY}
+              />
+              <line
+                stroke={stroke}
+                strokeOpacity="0.8"
+                strokeWidth="1.5"
+                vectorEffect="non-scaling-stroke"
+                x1={x - 4}
+                x2={x + 4}
+                y1={lowY}
+                y2={lowY}
+              />
+            </g>,
+          ];
         })}
       </g>
 

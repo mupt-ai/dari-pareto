@@ -153,6 +153,33 @@ describe("ParetoPlot options", () => {
     for (let index = 1; index < xs.length; index += 1) expect(xs[index] - xs[index - 1]).toBeGreaterThan(9 * 0.62 * 8);
   });
 
+  test("draws y intervals on the accuracy scale behind their points", () => {
+    const markup = renderParetoPlot({
+      ...props,
+      points: [{ id: "interval", label: "Interval", x: 1, y: 75, yInterval: [60, 90], color: "#123456" }],
+    });
+    const bar = markup.match(/<g aria-hidden="true" class="pareto-error-bars">([\s\S]*?)<\/g>/)?.[1] ?? "";
+    const lines = [...bar.matchAll(/<line[^>]*>/g)].map(([line]) => line ?? "");
+    expect(lines).toHaveLength(3);
+    expect(bar).toContain('stroke="#123456"');
+    const stem = lines[0] ?? "";
+    const top = Number(stem.match(/ y1="([\d.]+)"/)?.[1]);
+    const bottom = Number(stem.match(/ y2="([\d.]+)"/)?.[1]);
+    const pointY = Number(markup.match(/class="pareto-point[^>]*><circle cx="[\d.]+" cy="([\d.]+)"/)?.[1]);
+    // The stem runs from the upper bound, above the point, to the lower bound, below it.
+    expect(top).toBeLessThan(pointY);
+    expect(bottom).toBeGreaterThan(pointY);
+    // Drawn before the points, so each point sits on top of its bar.
+    expect(markup.indexOf("pareto-error-bars")).toBeLessThan(markup.indexOf('class="pareto-point'));
+  });
+
+  test("rejects y intervals that do not contain the point", () => {
+    expect(() => renderParetoPlot({
+      ...props,
+      points: [{ id: "invalid", label: "Invalid", x: 1, y: 75, yInterval: [80, 90] }],
+    })).toThrow("finite y interval containing y");
+  });
+
   test("colors points: Pareto-efficient ones filled, dominated ones ringed", () => {
     const markup = renderParetoPlot({
       ...props,

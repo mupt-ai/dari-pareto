@@ -70,6 +70,16 @@ export function validatePoints(points: readonly ParetoPoint[]): void {
     if (!Number.isFinite(point.x) || !Number.isFinite(point.y)) {
       throw new Error(`Pareto point ${point.id} must have finite x and y values.`);
     }
+    if (
+      point.yInterval &&
+      (!Number.isFinite(point.yInterval[0]) ||
+        !Number.isFinite(point.yInterval[1]) ||
+        point.yInterval[0] > point.y ||
+        point.yInterval[1] < point.y ||
+        point.yInterval[0] > point.yInterval[1])
+    ) {
+      throw new Error(`Pareto point ${point.id} must have a finite y interval containing y.`);
+    }
     ids.add(point.id);
   }
 }
