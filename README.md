@@ -161,6 +161,11 @@ as before.
   palette colors groups take: the groups named in `first`, in that order; then
   the rest by first appearance or by `rest: "count"`, most points first; then the
   groups named in `last`, such as `["Custom"]`, whatever the other rules say.
+- **Error bars.** A point's `yInterval: [lower, upper]`, such as a confidence
+  interval around a score, draws a capped vertical bar behind the point, in its
+  color or the muted theme color. The bounds must be finite and contain `y`. An
+  inferred y domain widens to fit them, and a highlighted group chip fades other
+  groups' bars along with their points.
 - **Palette.** `palette: ["#hex", …]` colors points that have no `color` of their
   own: each group (or each point, without groups) takes the next color in order
   of first appearance, starting over when there are more groups than colors.
