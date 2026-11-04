@@ -162,10 +162,18 @@ export function labelBox({ point, value, x, y, width, height, fontSize, avoid, k
       ? y - OFFSET - boxHeight
       : Math.min(y + OFFSET, height - boxHeight - EDGE);
   const boxes = keepClearOf ?? [];
+  const place = { x, y, boxWidth, boxHeight, width, height };
+  // Clear of the points and the boxes; else of the boxes alone; else of the boxes with the spots
+  // pulled inside the plot; else a corner of the plot clear of the boxes. Only a plot too small
+  // for two boxes falls through to beside.
   const spot =
     avoid || boxes.length
-      ? (clearSpot({ x, y, boxWidth, boxHeight, width, height, avoid: avoid ?? [], boxes }) ??
-        (boxes.length ? clearSpot({ x, y, boxWidth, boxHeight, width, height, avoid: [], boxes }) : undefined))
+      ? (clearSpot({ ...place, avoid: avoid ?? [], boxes }) ??
+        (boxes.length
+          ? (clearSpot({ ...place, avoid: [], boxes }) ??
+            clearSpot({ ...place, avoid: [], boxes, inside: true }) ??
+            clearCorner({ ...place, boxes }))
+          : undefined))
       : undefined;
   return { left: spot?.left ?? besideLeft, top: spot?.top ?? besideTop, width: boxWidth, height: boxHeight };
 }
@@ -208,10 +216,46 @@ export function LabelTooltip(props: LabelTooltipProps) {
   );
 }
 
+/** Whether a box at (left, top) of the given size overlaps any of the boxes, with a gap between. */
+function overlapsAny(left: number, top: number, boxWidth: number, boxHeight: number, boxes: readonly LabelBox[]): boolean {
+  return boxes.some(
+    (box) =>
+      left < box.left + box.width + BOX_GAP &&
+      left + boxWidth + BOX_GAP > box.left &&
+      top < box.top + box.height + BOX_GAP &&
+      top + boxHeight + BOX_GAP > box.top,
+  );
+}
+
+/** The first corner of the plot where a box of the given size overlaps none of the boxes. */
+function clearCorner({
+  boxWidth,
+  boxHeight,
+  width,
+  height,
+  boxes,
+}: {
+  boxWidth: number;
+  boxHeight: number;
+  width: number;
+  height: number;
+  boxes: readonly LabelBox[];
+}): { left: number; top: number } | undefined {
+  const right = width - boxWidth - EDGE;
+  const bottom = height - boxHeight - EDGE;
+  return [
+    { left: EDGE, top: EDGE },
+    { left: right, top: EDGE },
+    { left: EDGE, top: bottom },
+    { left: right, top: bottom },
+  ].find(({ left, top }) => !overlapsAny(left, top, boxWidth, boxHeight, boxes));
+}
+
 /**
  * The first spot around (x, y) for a box of the given size that stays inside the plot, covers
  * none of the `avoid` points, and overlaps none of the `boxes`: right, left, above, below, then
- * the four corners.
+ * the four corners. With `inside`, a spot past the plot's edge is pulled back inside it rather
+ * than passed over.
  */
 function clearSpot({
   x,
@@ -222,6 +266,7 @@ function clearSpot({
   height,
   avoid,
   boxes,
+  inside = false,
 }: {
   x: number;
   y: number;
@@ -231,6 +276,7 @@ function clearSpot({
   height: number;
   avoid: readonly { x: number; y: number }[];
   boxes: readonly LabelBox[];
+  inside?: boolean;
 }): { left: number; top: number } | undefined {
   const right = x + OFFSET;
   const leftSide = x - OFFSET - boxWidth;
@@ -248,7 +294,11 @@ function clearSpot({
     { left: leftSide, top: above },
     { left: leftSide, top: below },
   ];
-  return spots.find(
+  const pull = (value: number, high: number) => Math.max(EDGE, Math.min(value, high));
+  const placed = inside
+    ? spots.map(({ left, top }) => ({ left: pull(left, width - boxWidth - EDGE), top: pull(top, height - boxHeight - EDGE) }))
+    : spots;
+  return placed.find(
     ({ left, top }) =>
       left >= EDGE &&
       top >= EDGE &&
@@ -261,12 +311,6 @@ function clearSpot({
           other.y > top - CLEARANCE &&
           other.y < top + boxHeight + CLEARANCE,
       ) &&
-      !boxes.some(
-        (box) =>
-          left < box.left + box.width + BOX_GAP &&
-          left + boxWidth + BOX_GAP > box.left &&
-          top < box.top + box.height + BOX_GAP &&
-          top + boxHeight + BOX_GAP > box.top,
-      ),
+      !overlapsAny(left, top, boxWidth, boxHeight, boxes),
   );
 }

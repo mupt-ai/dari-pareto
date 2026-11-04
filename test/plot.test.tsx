@@ -360,6 +360,40 @@ describe("ParetoPlot options", () => {
     expect(boxes(render({}))).toHaveLength(1);
   });
 
+  test("a pinned label and an inspected one never overlap, wherever the inspected point sits", () => {
+    const overlaps: string[] = [];
+    for (const nx of [0.001, 0.005, 0.01, 0.02, 0.03, 0.035, 0.039]) {
+      for (const ny of [41, 50, 60, 70, 80, 90, 99]) {
+        const markup = renderToStaticMarkup(
+          ParetoSvg({
+            ...props,
+            width: 360,
+            height: 260,
+            points: [
+              { id: "chosen", label: "Chosen Setting With A Long Name", x: 0.036, y: 95 },
+              { id: "inspected", label: "Inspected Setting With A Long Name", x: nx, y: ny },
+            ],
+            xAxis: { ...props.xAxis, domain: [0, 0.04] },
+            yAxis: { ...props.yAxis, domain: [40, 100] },
+            showTooltip: true,
+            tooltipStyle: "label",
+            tooltipPlacement: "auto",
+            selectedId: "chosen",
+            hoveredId: "inspected",
+            pinSelectedTooltip: true,
+          }),
+        );
+        const [a, b] = [
+          ...markup.matchAll(
+            /class="pareto-tooltip"[^>]*><rect fill="[^"]*" height="([\d.]+)" stroke="[^"]*" width="([\d.]+)" x="([\d.]+)" y="([\d.]+)"/g,
+          ),
+        ].map(([, h, w, x, y]) => ({ left: Number(x), top: Number(y), right: Number(x) + Number(w), bottom: Number(y) + Number(h) }));
+        if (a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom) overlaps.push(`${nx},${ny}`);
+      }
+    }
+    expect(overlaps).toEqual([]);
+  });
+
   test("a label-style tooltip shows for the page's selected point while none is inspected", () => {
     const selected = (extra: Partial<Parameters<typeof ParetoSvg>[0]>) =>
       renderToStaticMarkup(
