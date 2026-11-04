@@ -127,6 +127,13 @@ export type ParetoPlotProps = {
    */
   tooltipPlacement?: "beside" | "auto";
   /**
+   * With `tooltipStyle: "label"`, keeps the label of the point the page selects (`selectedId`)
+   * showing while another point is inspected, so the two can be compared. The selected point's
+   * box stays where it rests; the inspected point's takes the first spot around its point that
+   * overlaps it not at all (and, with `tooltipPlacement: "auto"`, covers no other point).
+   */
+  pinSelectedTooltip?: boolean;
+  /**
    * Text drawn along the frontier line's longest segment, such as "PARETO FRONTIER". Left out
    * when no segment is long enough to hold it.
    */

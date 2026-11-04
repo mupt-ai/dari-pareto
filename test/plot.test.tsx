@@ -321,6 +321,45 @@ describe("ParetoPlot options", () => {
     expect(covers(render({ tooltipPlacement: "auto" }))).toBe(false);
   });
 
+  test("a pinned selected label stays while another point is inspected, and the two never overlap", () => {
+    const render = (extra: Partial<Parameters<typeof ParetoSvg>[0]>) =>
+      renderToStaticMarkup(
+        ParetoSvg({
+          ...props,
+          points: [
+            { id: "chosen", label: "Chosen", x: 0.02, y: 60 },
+            { id: "neighbour", label: "Neighbour", x: 0.0215, y: 61 },
+            { id: "far", label: "Far", x: 0.035, y: 40 },
+          ],
+          xAxis: { ...props.xAxis, domain: [0, 0.04] },
+          showTooltip: true,
+          tooltipStyle: "label",
+          tooltipPlacement: "auto",
+          selectedId: "chosen",
+          hoveredId: "neighbour",
+          ...extra,
+        }),
+      );
+    const boxes = (markup: string) =>
+      [
+        ...markup.matchAll(
+          /class="pareto-tooltip"[^>]*><rect fill="[^"]*" height="([\d.]+)" stroke="[^"]*" width="([\d.]+)" x="([\d.]+)" y="([\d.]+)"/g,
+        ),
+      ].map(([, h, w, x, y]) => ({ left: Number(x), top: Number(y), right: Number(x) + Number(w), bottom: Number(y) + Number(h) }));
+
+    const pinned = render({ pinSelectedTooltip: true });
+    const [first, second] = boxes(pinned);
+    expect(boxes(pinned)).toHaveLength(2);
+    expect(pinned).toContain(">Chosen<");
+    expect(pinned).toContain(">Neighbour<");
+    const overlap = first.left < second.right && second.left < first.right && first.top < second.bottom && second.top < first.bottom;
+    expect(overlap).toBe(false);
+    // The pinned box stays where it rests when nothing is inspected.
+    expect(boxes(render({ pinSelectedTooltip: true, hoveredId: null }))[0]).toEqual(first);
+
+    expect(boxes(render({}))).toHaveLength(1);
+  });
+
   test("a label-style tooltip shows for the page's selected point while none is inspected", () => {
     const selected = (extra: Partial<Parameters<typeof ParetoSvg>[0]>) =>
       renderToStaticMarkup(

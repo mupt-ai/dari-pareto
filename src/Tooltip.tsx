@@ -111,30 +111,34 @@ type LabelTooltipProps = {
   fontSize: number;
   /** Other points' centers, for `tooltipPlacement: "auto"`: the box takes a spot clear of them. */
   avoid?: readonly { x: number; y: number }[];
+  /** Boxes already on the plot, such as a pinned label: the box never overlaps them. */
+  keepClearOf?: readonly LabelBox[];
 };
+
+/** Where a label-style tooltip's box sits, and its size. */
+export type LabelBox = { left: number; top: number; width: number; height: number };
+
+/** How far apart two label boxes stay. */
+const BOX_GAP = 6;
 
 /** How far a point's center must sit outside the box for the box to count as clear of it. */
 const CLEARANCE = 7;
 
-/**
- * A box beside the point with its label, its note faint after it, over its values. It sits to
- * the right of the point, or to the left when there is no room; on a plot too narrow for
- * either, above or below it. Given points to `avoid`, it takes the first spot around its point
- * (beside, above, below, then the corners) that covers none of them. It never leaves the plot.
- */
-export function LabelTooltip({
-  point,
-  value,
-  x,
-  y,
-  width,
-  height,
-  fontSize,
-  avoid,
-}: LabelTooltipProps) {
+/** The box's type sizes, from the tooltip's font size. */
+function metrics(fontSize: number) {
   const nameSize = fontSize * NAME_SCALE;
-  const padding = fontSize * 0.9;
-  const lineGap = fontSize * 1.6;
+  return { nameSize, padding: fontSize * 0.9, lineGap: fontSize * 1.6 };
+}
+
+/**
+ * Where a label-style tooltip's box goes. It sits to the right of the point, or to the left when
+ * there is no room; on a plot too narrow for either, above or below it. Given points to `avoid`
+ * or boxes to `keepClearOf`, it takes the first spot around its point (beside, above, below, then
+ * the corners) that covers none of those points and overlaps none of those boxes, or failing
+ * that, the first that overlaps none of the boxes. It never leaves the plot.
+ */
+export function labelBox({ point, value, x, y, width, height, fontSize, avoid, keepClearOf }: LabelTooltipProps): LabelBox {
+  const { nameSize, padding, lineGap } = metrics(fontSize);
   const textWidth = Math.max(
     labelText(point).length * nameSize * NAME_CHARACTER_WIDTH,
     value.length * fontSize * CHARACTER_WIDTH,
@@ -157,9 +161,20 @@ export function LabelTooltip({
     : y - OFFSET - boxHeight >= EDGE
       ? y - OFFSET - boxHeight
       : Math.min(y + OFFSET, height - boxHeight - EDGE);
-  const { left, top } = avoid
-    ? clearSpot({ x, y, boxWidth, boxHeight, width, height, avoid }) ?? { left: besideLeft, top: besideTop }
-    : { left: besideLeft, top: besideTop };
+  const boxes = keepClearOf ?? [];
+  const spot =
+    avoid || boxes.length
+      ? (clearSpot({ x, y, boxWidth, boxHeight, width, height, avoid: avoid ?? [], boxes }) ??
+        (boxes.length ? clearSpot({ x, y, boxWidth, boxHeight, width, height, avoid: [], boxes }) : undefined))
+      : undefined;
+  return { left: spot?.left ?? besideLeft, top: spot?.top ?? besideTop, width: boxWidth, height: boxHeight };
+}
+
+/** A box beside the point with its label, its note faint after it, over its values; see `labelBox`. */
+export function LabelTooltip(props: LabelTooltipProps) {
+  const { point, value, fontSize } = props;
+  const { nameSize, padding, lineGap } = metrics(fontSize);
+  const { left, top, width: boxWidth, height: boxHeight } = labelBox(props);
   const nameY = top + padding + nameSize * 0.75;
   return (
     <g aria-hidden="true" className="pareto-tooltip" fontSize={fontSize} pointerEvents="none">
@@ -194,8 +209,9 @@ export function LabelTooltip({
 }
 
 /**
- * The first spot around (x, y) for a box of the given size that stays inside the plot and covers
- * none of the `avoid` points: right, left, above, below, then the four corners.
+ * The first spot around (x, y) for a box of the given size that stays inside the plot, covers
+ * none of the `avoid` points, and overlaps none of the `boxes`: right, left, above, below, then
+ * the four corners.
  */
 function clearSpot({
   x,
@@ -205,6 +221,7 @@ function clearSpot({
   width,
   height,
   avoid,
+  boxes,
 }: {
   x: number;
   y: number;
@@ -213,6 +230,7 @@ function clearSpot({
   width: number;
   height: number;
   avoid: readonly { x: number; y: number }[];
+  boxes: readonly LabelBox[];
 }): { left: number; top: number } | undefined {
   const right = x + OFFSET;
   const leftSide = x - OFFSET - boxWidth;
@@ -242,6 +260,13 @@ function clearSpot({
           other.x < left + boxWidth + CLEARANCE &&
           other.y > top - CLEARANCE &&
           other.y < top + boxHeight + CLEARANCE,
+      ) &&
+      !boxes.some(
+        (box) =>
+          left < box.left + box.width + BOX_GAP &&
+          left + boxWidth + BOX_GAP > box.left &&
+          top < box.top + box.height + BOX_GAP &&
+          top + boxHeight + BOX_GAP > box.top,
       ),
   );
 }

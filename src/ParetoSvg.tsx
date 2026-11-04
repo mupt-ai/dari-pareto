@@ -7,7 +7,7 @@ import { GroupLegend, groupsOf, inChip, layoutGroups, parseChipKey } from "./Gro
 import { CHARACTER_WIDTH, placeLabels } from "./labels.js";
 import { nearestWithin } from "./pointer.js";
 import { type LabelChoice, SETTINGS_BUTTON, Settings } from "./Settings.js";
-import { LabelTooltip, labelText, Tooltip } from "./Tooltip.js";
+import { LabelTooltip, labelBox, labelText, Tooltip } from "./Tooltip.js";
 import type { AxisOptions, ParetoPlotProps, ParetoPoint } from "./types.js";
 
 export const DEFAULT_WIDTH = 620;
@@ -240,6 +240,7 @@ export function ParetoSvg({
   showTooltip = false,
   tooltipStyle = "card",
   tooltipPlacement = "beside",
+  pinSelectedTooltip = false,
   frontierLabel,
   textScale,
   hoverRadius,
@@ -442,23 +443,29 @@ export function ParetoSvg({
     showTooltip && interactive
       ? points.find((point) => point.id === (activeId ?? (labelStyle ? chosen : null)))
       : undefined;
+  const labelFor = (point: ParetoPoint) => ({
+    fontSize: size(10),
+    height,
+    point,
+    value: `${formatY(point.y)} at ${formatX(point.x)}`,
+    width,
+    x: scaleX(point.x),
+    y: scaleY(point.y),
+    avoid:
+      tooltipPlacement === "auto"
+        ? points.filter((other) => other.id !== point.id).map((other) => ({ x: scaleX(other.x), y: scaleY(other.y) }))
+        : undefined,
+  });
+  // With pinSelectedTooltip, the selected point's label stays where it rests while another point
+  // is inspected, and the inspected point's label takes a spot clear of it.
+  const pinnedPoint =
+    tooltipPoint && labelStyle && pinSelectedTooltip && chosen !== null && tooltipPoint.id !== chosen
+      ? points.find((point) => point.id === chosen)
+      : undefined;
+  const pinnedTooltip = pinnedPoint ? labelFor(pinnedPoint) : null;
   const labelTooltip =
     tooltipPoint && labelStyle
-      ? {
-          fontSize: size(10),
-          height,
-          point: tooltipPoint,
-          value: `${formatY(tooltipPoint.y)} at ${formatX(tooltipPoint.x)}`,
-          width,
-          x: scaleX(tooltipPoint.x),
-          y: scaleY(tooltipPoint.y),
-          avoid:
-            tooltipPlacement === "auto"
-              ? points
-                  .filter((point) => point.id !== tooltipPoint.id)
-                  .map((point) => ({ x: scaleX(point.x), y: scaleY(point.y) }))
-              : undefined,
-        }
+      ? { ...labelFor(tooltipPoint), keepClearOf: pinnedTooltip ? [labelBox(pinnedTooltip)] : undefined }
       : null;
   // With the tooltip, a point the page selects stands out as an inspected one does: the other
   // labels step back, and its own is drawn over them.
@@ -783,8 +790,8 @@ export function ParetoSvg({
 
       <g aria-hidden="true">
         {labelOrder.map((point) => {
-          // The tooltip carries the hovered point's label.
-          if (point.id === tooltipPoint?.id) return null;
+          // The tooltips carry the hovered point's label, and a pinned selected point's.
+          if (point.id === tooltipPoint?.id || point.id === pinnedPoint?.id) return null;
           const selected = lit(point);
           const spot = placed?.get(point.id);
           const resting = placed ? spot !== undefined : labelled(point);
@@ -823,6 +830,7 @@ export function ParetoSvg({
       ) : null}
 
       {/* After the chips, which a card beside a point near the top can reach. */}
+      {pinnedTooltip ? <LabelTooltip {...pinnedTooltip} /> : null}
       {labelTooltip ? <LabelTooltip {...labelTooltip} /> : null}
       {tooltipPoint && !labelStyle ? (
         <Tooltip

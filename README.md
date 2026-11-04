@@ -204,6 +204,9 @@ as before.
   pointed at. With `tooltipPlacement: "auto"` the card takes the first spot
   around its point (beside, above, below, then the corners) that covers no
   other point, so a selected point's card left showing never hides a neighbour.
+  With `pinSelectedTooltip`, the selected point's card stays where it rests while
+  another point is inspected, so the two can be compared; the inspected point's
+  card takes a spot that never overlaps it.
 - **Frontier label.** `frontierLabel: "PARETO FRONTIER"` writes that text along
   the frontier line's longest segment that is long enough to hold it and no
   steeper than 50°. It is left out when no segment qualifies.
