@@ -109,14 +109,29 @@ type LabelTooltipProps = {
   width: number;
   height: number;
   fontSize: number;
+  /** Other points' centers, for `tooltipPlacement: "auto"`: the box takes a spot clear of them. */
+  avoid?: readonly { x: number; y: number }[];
 };
+
+/** How far a point's center must sit outside the box for the box to count as clear of it. */
+const CLEARANCE = 7;
 
 /**
  * A box beside the point with its label, its note faint after it, over its values. It sits to
  * the right of the point, or to the left when there is no room; on a plot too narrow for
- * either, above or below it. It never leaves the plot.
+ * either, above or below it. Given points to `avoid`, it takes the first spot around its point
+ * (beside, above, below, then the corners) that covers none of them. It never leaves the plot.
  */
-export function LabelTooltip({ point, value, x, y, width, height, fontSize }: LabelTooltipProps) {
+export function LabelTooltip({
+  point,
+  value,
+  x,
+  y,
+  width,
+  height,
+  fontSize,
+  avoid,
+}: LabelTooltipProps) {
   const nameSize = fontSize * NAME_SCALE;
   const padding = fontSize * 0.9;
   const lineGap = fontSize * 1.6;
@@ -130,18 +145,21 @@ export function LabelTooltip({ point, value, x, y, width, height, fontSize }: La
   const fitsRight = x + OFFSET + boxWidth <= width - EDGE;
   const fitsLeft = x - OFFSET - boxWidth >= EDGE;
   const beside = fitsRight || fitsLeft;
-  const left = beside
+  const besideLeft = beside
     ? fitsRight
       ? x + OFFSET
       : x - OFFSET - boxWidth
     : clamp(x - boxWidth / 2, EDGE, width - boxWidth - EDGE);
   // Too wide to sit beside the point (a narrow plot): above it, or below when there is no room
   // above, so the point stays in view.
-  const top = beside
+  const besideTop = beside
     ? clamp(y - boxHeight / 2, EDGE, height - boxHeight - EDGE)
     : y - OFFSET - boxHeight >= EDGE
       ? y - OFFSET - boxHeight
       : Math.min(y + OFFSET, height - boxHeight - EDGE);
+  const { left, top } = avoid
+    ? clearSpot({ x, y, boxWidth, boxHeight, width, height, avoid }) ?? { left: besideLeft, top: besideTop }
+    : { left: besideLeft, top: besideTop };
   const nameY = top + padding + nameSize * 0.75;
   return (
     <g aria-hidden="true" className="pareto-tooltip" fontSize={fontSize} pointerEvents="none">
@@ -172,5 +190,58 @@ export function LabelTooltip({ point, value, x, y, width, height, fontSize }: La
         {value}
       </text>
     </g>
+  );
+}
+
+/**
+ * The first spot around (x, y) for a box of the given size that stays inside the plot and covers
+ * none of the `avoid` points: right, left, above, below, then the four corners.
+ */
+function clearSpot({
+  x,
+  y,
+  boxWidth,
+  boxHeight,
+  width,
+  height,
+  avoid,
+}: {
+  x: number;
+  y: number;
+  boxWidth: number;
+  boxHeight: number;
+  width: number;
+  height: number;
+  avoid: readonly { x: number; y: number }[];
+}): { left: number; top: number } | undefined {
+  const right = x + OFFSET;
+  const leftSide = x - OFFSET - boxWidth;
+  const middle = y - boxHeight / 2;
+  const centered = x - boxWidth / 2;
+  const above = y - OFFSET - boxHeight;
+  const below = y + OFFSET;
+  const spots = [
+    { left: right, top: middle },
+    { left: leftSide, top: middle },
+    { left: centered, top: above },
+    { left: centered, top: below },
+    { left: right, top: above },
+    { left: right, top: below },
+    { left: leftSide, top: above },
+    { left: leftSide, top: below },
+  ];
+  return spots.find(
+    ({ left, top }) =>
+      left >= EDGE &&
+      top >= EDGE &&
+      left + boxWidth <= width - EDGE &&
+      top + boxHeight <= height - EDGE &&
+      !avoid.some(
+        (other) =>
+          other.x > left - CLEARANCE &&
+          other.x < left + boxWidth + CLEARANCE &&
+          other.y > top - CLEARANCE &&
+          other.y < top + boxHeight + CLEARANCE,
+      ),
   );
 }

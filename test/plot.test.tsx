@@ -284,6 +284,43 @@ describe("ParetoPlot options", () => {
     expect(Number(box?.[2]) + Number(box?.[1])).toBeLessThan(pointY);
   });
 
+  test("an auto-placed label-style tooltip moves off a neighbouring point; the default stays beside", () => {
+    const render = (extra: Partial<Parameters<typeof ParetoSvg>[0]>) =>
+      renderToStaticMarkup(
+        ParetoSvg({
+          ...props,
+          points: [
+            { id: "chosen", label: "Chosen", x: 0.02, y: 60 },
+            { id: "neighbour", label: "Neighbour", x: 0.0215, y: 60 },
+          ],
+          xAxis: { ...props.xAxis, domain: [0, 0.04] },
+          showTooltip: true,
+          tooltipStyle: "label",
+          selectedId: "chosen",
+          ...extra,
+        }),
+      );
+    const covers = (markup: string) => {
+      const [, height, width, x, y] =
+        markup.match(
+          /class="pareto-tooltip"[^>]*><rect fill="[^"]*" height="([\d.]+)" stroke="[^"]*" width="([\d.]+)" x="([\d.]+)" y="([\d.]+)"/,
+        ) ?? [];
+      const [, cx, cy] =
+        markup.match(/aria-label="Neighbour[^"]*"[^>]*><circle cx="([\d.]+)" cy="([\d.]+)"/) ?? [];
+      expect(height).toBeDefined();
+      expect(cx).toBeDefined();
+      return (
+        Number(cx) > Number(x) &&
+        Number(cx) < Number(x) + Number(width) &&
+        Number(cy) > Number(y) &&
+        Number(cy) < Number(y) + Number(height)
+      );
+    };
+
+    expect(covers(render({}))).toBe(true);
+    expect(covers(render({ tooltipPlacement: "auto" }))).toBe(false);
+  });
+
   test("a label-style tooltip shows for the page's selected point while none is inspected", () => {
     const selected = (extra: Partial<Parameters<typeof ParetoSvg>[0]>) =>
       renderToStaticMarkup(

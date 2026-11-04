@@ -120,6 +120,13 @@ export type ParetoPlotProps = {
    */
   tooltipStyle?: "card" | "label";
   /**
+   * Where a "label" tooltip sits. "beside" (the default) puts it to the right of its point, or
+   * to the left when there is no room. "auto" tries beside, then above and below, then the
+   * corners, and takes the first spot that covers no other point, so a box left showing for a
+   * selected point never hides its neighbours; with no clear spot it sits beside.
+   */
+  tooltipPlacement?: "beside" | "auto";
+  /**
    * Text drawn along the frontier line's longest segment, such as "PARETO FRONTIER". Left out
    * when no segment is long enough to hold it.
    */

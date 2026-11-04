@@ -201,7 +201,9 @@ as before.
   over its values on one line (`70.2% at $1.36`). A point the page selects with
   `selectedId` shows the same while none is inspected. Combine it with
   `showPointLabels: "none"` for a plot that names a point only when it is
-  pointed at.
+  pointed at. With `tooltipPlacement: "auto"` the card takes the first spot
+  around its point (beside, above, below, then the corners) that covers no
+  other point, so a selected point's card left showing never hides a neighbour.
 - **Frontier label.** `frontierLabel: "PARETO FRONTIER"` writes that text along
   the frontier line's longest segment that is long enough to hold it and no
   steeper than 50°. It is left out when no segment qualifies.

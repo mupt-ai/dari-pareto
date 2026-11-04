@@ -239,6 +239,7 @@ export function ParetoSvg({
   showTitle = true,
   showTooltip = false,
   tooltipStyle = "card",
+  tooltipPlacement = "beside",
   frontierLabel,
   textScale,
   hoverRadius,
@@ -451,6 +452,12 @@ export function ParetoSvg({
           width,
           x: scaleX(tooltipPoint.x),
           y: scaleY(tooltipPoint.y),
+          avoid:
+            tooltipPlacement === "auto"
+              ? points
+                  .filter((point) => point.id !== tooltipPoint.id)
+                  .map((point) => ({ x: scaleX(point.x), y: scaleY(point.y) }))
+              : undefined,
         }
       : null;
   // With the tooltip, a point the page selects stands out as an inspected one does: the other
