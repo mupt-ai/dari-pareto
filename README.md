@@ -13,10 +13,7 @@ package is not limited to cost and score.
 
 ![A dark cost-versus-performance plot with a mint Pareto frontier](docs/pareto-example.svg)
 
-> The package is not published yet. Its first release will be installed with
-> `npm install @mupt-ai/dari-pareto react react-dom`. For now, clone this
-> repository, run `bun install && bun run build`, and install its directory in
-> another project with `npm install /path/to/dari-pareto`.
+Install it with `npm install @mupt-ai/dari-pareto react react-dom`.
 
 ## Interactive React Plot
 
@@ -51,7 +48,7 @@ export function ResultsPlot() {
 ```
 
 The SVG preserves its aspect ratio while scaling to its container width. Its
-logical size defaults to `720 × 380`; use `width` and `height` to change it.
+logical size defaults to `620 × 290`; use `width` and `height` to change it.
 Each interactive point is a tab stop with a descriptive screen-reader label,
 accepts pointer input, and is selectable with Enter or Space. `onSelect`
 receives the complete selected point. The plot doesn't keep a selection of its
